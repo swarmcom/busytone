@@ -1,0 +1,13 @@
+{application, busytone,
+[
+	{description, "SIP Test Suite"},
+	{vsn, "1.0"},
+	{registered, []},
+	{applications, [
+		kernel,
+		stdlib
+	]},
+	{modules, []},
+	{mod, { busytone_app, []}},
+	{env, []}
+]}.
