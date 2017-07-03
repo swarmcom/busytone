@@ -5,7 +5,10 @@
 	{registered, []},
 	{applications, [
 		kernel,
-		stdlib
+		stdlib,
+		gun,
+		lager,
+		gproc
 	]},
 	{modules, []},
 	{mod, { busytone_app, []}},
