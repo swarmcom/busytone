@@ -3,7 +3,7 @@
 -include_lib("busytone/include/busytone.hrl").
 -include_lib("stdlib/include/qlc.hrl").
 
--export([start_link/3, rpc/3, available/1, release/1, online/0, by_number/1]).
+-export([start_link/3, rpc/3, available/1, release/1, online/0, by_number/1, stop/1]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
@@ -32,6 +32,7 @@ cast(Login, Msg) ->
 	end.
 
 rpc(Id, Cmd, Args) -> cast(Id, {rpc, Cmd, Args}).
+stop(Id) -> cast(Id, stop).
 available(Id) -> rpc(Id, go_available, []).
 release(Id) -> rpc(Id, go_released, []).
 
@@ -57,6 +58,7 @@ handle_info({gun_ws, _Pid, {text, Text}}, S) ->
 	handle_ws_text(jiffy:decode(Text, [return_maps])),
 	{noreply, S};
 handle_info({gun_data, _Pid, _StreamRef, fin, _Data}, S) ->
+lager:error("fin:~p", [_Data]),
 	{noreply, S};
 
 handle_info(ping, S=#state{ reach = Pid, ws_msg_id = Id }) ->
@@ -79,6 +81,8 @@ handle_call(_Msg, _From, S=#state{}) ->
 handle_cast({rpc, Cmd, Args}, S=#state{ reach = Pid, ws_msg_id = Id }) ->
 	gun:ws_send(Pid, {text, jiffy:encode(#{ id => Id, method => Cmd, params => Args, jsonrpc => <<"2.0">> })}),
 	{noreply, S#state{ws_msg_id = Id + 1}};
+handle_cast(stop, S=#state{}) ->
+	{stop, normal, S};
 
 handle_cast(_Msg, S=#state{}) -> {noreply, S}.
 terminate(_Reason, _S) -> ok.

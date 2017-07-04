@@ -1,7 +1,7 @@
 BusyTone
 ========
 
-Reach functional tests and framework.
+Reach functional tests and framework. This is work in progress, see [TODO](TODO.md).
 
 Notes
 =====
