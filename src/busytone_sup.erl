@@ -18,5 +18,7 @@ init(_Args) ->
 	Port = cfg(reach_port),
 	Agents = cfg(agents),
 	Fs = cfg(freeswitch_drone),
-	ChildSpecs = [ ?CHILD(call_manager, [Fs]) ] ++ [ ?CHILD(Login, agent, [Host, Port, A]) || A=#agent{login=Login} <- Agents ],
+	ChildSpecs =
+		[ ?CHILD(call_manager, []), ?CHILD(fswitch, [Fs]) ]
+		++ [ ?CHILD(Login, agent, [Host, Port, A]) || A=#agent{login=Login} <- Agents ],
 	{ok, {SupFlags, ChildSpecs}}.

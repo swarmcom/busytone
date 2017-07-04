@@ -1,8 +1,9 @@
 -module(agent).
 -behaviour(gen_server).
 -include_lib("busytone/include/busytone.hrl").
+-include_lib("stdlib/include/qlc.hrl").
 
--export([start_link/3, rpc/3, available/1, release/1]).
+-export([start_link/3, rpc/3, available/1, release/1, online/0, by_number/1]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
@@ -13,9 +14,19 @@
 	ws_msg_id = 1
 }).
 
+pid(Login) -> gproc:whereis_name({n, l, {?MODULE, Login}}).
+
+by_number(Number) ->
+	Q = qlc:q([ Login || {_, _Pid, #agent{login=Login, number=N}} <- gproc:table({l, n}), N =:= Number ]),
+	qlc:e(Q).
+
+online() ->
+	Q = qlc:q([ A || {_, _Pid, A=#agent{}} <- gproc:table({l, n}) ]),
+	qlc:e(Q).
+
 cast(Login, Msg) when is_pid(Login) -> gen_server:cast(Login, Msg);
 cast(Login, Msg) ->
-	case gproc:whereis_name({n, l, {agent, Login}}) of
+	case pid(Login) of
 		undefined -> lager:error("no agent:~p msg:~p", [Login, Msg]), undefined;
 		Pid -> gen_server:cast(Pid, Msg)
 	end.
@@ -29,7 +40,7 @@ start_link(Host, Port, A=#agent{}) -> gen_server:start_link(?MODULE, [Host, Port
 init([Host, Port, A=#agent{login=Login}]) ->
 	lager:notice("start agent, login:~p", [Login]),
 	{ok, Pid} = gun:open(Host, Port),
-	gproc:reg({n, l, {?MODULE, Login}}),
+	gproc:reg({n, l, {?MODULE, Login}}, A),
 	monitor(process, Pid),
 	{ok, #state{ reach = Pid, agent = A}}.
 

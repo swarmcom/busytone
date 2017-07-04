@@ -6,7 +6,7 @@
 	send/2,
 	api/2, api/3,
 	bgapi/3,
-	sapi/3, sbgapi/3,
+	sapi/3, sbgapi/3, fapi/2, fapi/3, fbgapi/2, fbgapi/3,
 	event/2,
 	session_event/2,
 	nixevent/2,
@@ -68,7 +68,7 @@ fetch_reply(Node, FetchID, Reply) ->
 api(Node, Cmd) -> api(Node, Cmd, "").
 
 api(Node, Cmd, Args) ->
-	lager:info("fs api ~s ~s", [Cmd, Args]),
+	lager:info("fs api ~p ~p ~p", [Node, Cmd, Args]),
 	{api, Node} ! {api, Cmd, Args},
 	receive
 		{ok, X} -> 
@@ -82,14 +82,26 @@ api(Node, Cmd, Args) ->
 		timeout
 	end.
 
+fmt(Format, Args) -> lists:flatten(io_lib:format(Format, Args)).
+
 sapi(Node, Cmd, Args) ->
 	api(Node, Cmd, string:join([ lists:flatten(io_lib:format("~s", [Arg])) || Arg <- Args], " ")).
 
 sbgapi(Node, Cmd, Args) ->
 	bgapi(Node, Cmd, string:join([ lists:flatten(io_lib:format("~s", [Arg])) || Arg <- Args], " ")).
 
+fapi(Node, Format) -> fapi(Node, Format, []).
+fapi(Node, Format, Args) ->
+	[Cmd|Rest] = string:tokens(fmt(Format, Args), " "),
+	api(Node, erlang:list_to_atom(Cmd), string:join(Rest, " ")).
+
+fbgapi(Node, Format) -> fbgapi(Node, Format, []).
+fbgapi(Node, Format, Args) ->
+	[Cmd|Rest] = string:tokens(fmt(Format, Args), " "),
+	bgapi(Node, Cmd, string:join(Rest, " ")).
+
 bgapi(Node, Cmd, Args) ->
-	lager:info("fs bgapi ~p ~p", [Cmd, Args]),
+	lager:info("fs bgapi ~s ~s", [Cmd, Args]),
 	Self = self(),
 	spawn(fun() -> bgapi_handler(Self, Node, Cmd, Args) end),
 	receive

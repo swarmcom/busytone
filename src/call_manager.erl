@@ -3,23 +3,17 @@
 
 % accept and manage incoming agent callls
 
--export([start_link/1]).
+-export([start_link/0]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
--record(state, {
-	drone
-}).
+-record(state, {}).
 
-start_link(FsDrone) ->
-	gen_server:start_link({local, ?MODULE}, ?MODULE, [FsDrone], []).
+start_link() ->
+	gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
-init([FsDrone]) ->
-	process_flag(trap_exit, true),
-	Drone = erlang:list_to_atom(FsDrone),
-	pong = net_adm:ping(Drone),
-	erlang:monitor_node(Drone, true),
-	{ok, #state{ drone = Drone }}.
+init([]) ->
+	{ok, #state{}}.
 
 handle_info({freeswitch_sendmsg, UUID}, #state{}=S) ->
 	lager:notice("incoming message, uuid:~s", [UUID]),
@@ -36,9 +30,6 @@ handle_info({get_pid, UUID, Ref, From}, #state{}=S) ->
 	From ! {Ref, CallPid},
 	{noreply, S};
 
-handle_info({nodedown, Node}, #state{drone=Node}=S) ->
-	{noreply, S};
-
 handle_info(_Info, S=#state{}) ->
 	lager:error("unhandled info:~p", [_Info]),
 	{noreply, S}.
@@ -46,9 +37,13 @@ handle_info(_Info, S=#state{}) ->
 handle_cast(_Msg, S=#state{}) ->
 	lager:error("unhandled cast:~p", [_Msg]),
 	{noreply, S}.
+
 handle_call(_Request, _From, S=#state{}) ->
 	lager:error("unhandled call:~p", [_Request]),
 	{reply, ok, S}.
 
-terminate(_Reason, _S) -> ok.
+terminate(_Reason, _S) ->
+	lager:notice("terminate, reason:~p", [_Reason]),
+	ok.
+
 code_change(_OldVsn, S=#state{}, _Extra) -> {ok, S}.
