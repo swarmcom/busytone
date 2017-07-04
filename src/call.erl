@@ -2,7 +2,13 @@
 -behaviour(gen_server).
 -include_lib("stdlib/include/qlc.hrl").
 
--export([start_link/1, online/0, pid/1, vars/1, variables/1, hangup/1, answer/1, park/1, transfer/2]).
+-export([
+	start_link/1, online/0, pid/1, tuple/1,
+	vars/1, variables/1,
+	hangup/1, answer/1, park/1, break/1,
+	deflect/2, display/3, getvar/2, hold/1, hold/2, setvar/2, setvar/3, send_dtmf/2,
+	transfer/2, transfer/3, transfer/4, record/3
+	]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
@@ -15,8 +21,9 @@
 start_link(UUID) ->
 	gen_server:start_link(?MODULE, [UUID], []).
 
-pid(UUID) ->
-	gproc:whereis_name({n, l, {?MODULE, UUID}}).
+tuple(UUID) -> {?MODULE, UUID}.
+pid({?MODULE, UUID}) -> pid(UUID);
+pid(UUID) -> lager:notice("~p", [UUID]), gproc:whereis_name({n, l, {?MODULE, UUID}}).
 
 safe_call(Id, Msg) when is_pid(Id) -> gen_server:call(Id, Msg);
 safe_call(Id, Msg) ->
@@ -34,10 +41,28 @@ safe_cast(Id, Msg) ->
 
 vars(Id) -> safe_call(Id, vars).
 variables(Id) -> safe_call(Id, variables).
+
 hangup(Id) -> safe_cast(Id, hangup).
 answer(Id) -> safe_cast(Id, answer).
 park(Id) -> safe_cast(Id, park).
-transfer(Id, Target) -> safe_cast(Id, {transfer, Target}).
+break(Id) -> safe_cast(Id, break).
+
+deflect(Id, Target) -> safe_call(Id, {deflect, Target}).
+display(Id, Name, Number) -> safe_call(Id, {display, Name, Number}).
+getvar(Id, Name) -> safe_call(Id, {getvar, Name}).
+hold(Id) -> safe_call(Id, {hold}).
+hold(Id, off) -> safe_call(Id, {hold, off});
+hold(Id, toggle) -> safe_call(Id, {hold, toggle}).
+send_dtmf(Id, DTMF) -> safe_call(Id, {send_dtmf, DTMF}).
+setvar(Id, Name) -> safe_call(Id, {setvar, Name}).
+setvar(Id, Name, Value) -> safe_call(Id, {setvar, Name, Value}).
+transfer(Id, Target) -> safe_call(Id, {transfer, Target}).
+transfer(Id, Target, Dialplan) -> safe_call(Id, {transfer, Target, Dialplan}).
+transfer(Id, Target, Dialplan, Context) -> safe_call(Id, {transfer, Target, Dialplan, Context}).
+record(Id, Action=start, Path) -> safe_call(Id, {record, Action, Path});
+record(Id, Action=stop, Path) -> safe_call(Id, {record, Action, Path});
+record(Id, Action=mask, Path) -> safe_call(Id, {record, Action, Path});
+record(Id, Action=unmask, Path) -> safe_call(Id, {record, Action, Path}).
 
 sync_state(Pid) when is_pid(Pid) -> Pid ! sync_state.
 
@@ -51,13 +76,10 @@ init([UUID]) ->
 	sync_state(self()),
 	{ok, #state{uuid = UUID}}.
 
-handle_cast(answer, S=#state{uuid=UUID}) ->
-	fswitch:api("uuid_answer ~s", [UUID]),
-	{noreply, S};
-
-handle_cast(hangup, S=#state{uuid=UUID}) ->
-	fswitch:api("uuid_kill ~s", [UUID]),
-	{noreply, S};
+handle_cast(answer, S=#state{uuid=UUID}) -> fswitch:api("uuid_answer ~s", [UUID]), {noreply, S};
+handle_cast(hangup, S=#state{uuid=UUID}) -> fswitch:api("uuid_kill ~s", [UUID]), {noreply, S};
+handle_cast(park, S=#state{uuid=UUID}) -> fswitch:api("uuid_park ~s", [UUID]), {noreply, S};
+handle_cast(break, S=#state{uuid=UUID}) -> fswitch:api("uuid_break ~s", [UUID]), {noreply, S};
 
 handle_cast(_Msg, S=#state{}) ->
 	lager:error("unhandled cast:~p", [_Msg]),
@@ -85,6 +107,21 @@ handle_info(_Info, S=#state{}) ->
 
 handle_call(vars, _From, S=#state{vars = Vars}) -> {reply, Vars, S};
 handle_call(variables, _From, S=#state{variables = Variables}) -> {reply, Variables, S};
+
+handle_call({deflect, Target}, _From, S=#state{uuid=UUID}) -> {reply, fswitch:api("uuid_deflect ~s ~s", [UUID, Target]), S};
+handle_call({display, Name, Number}, _From, S=#state{uuid=UUID}) -> {reply, fswitch:api("uuid_display ~s ~s|~s", [UUID, Name, Number]), S};
+handle_call({getvar, Name}, _From, S=#state{uuid=UUID}) -> {reply, fswitch:api("uuid_getvar ~s ~s", [UUID, Name]), S};
+handle_call({hold}, _From, S=#state{uuid=UUID}) -> {reply, fswitch:api("uuid_hold ~s", [UUID]), S};
+handle_call({hold, Cmd}, _From, S=#state{uuid=UUID}) -> {reply, fswitch:api("uuid_hold ~s ~s", [Cmd, UUID]), S};
+handle_call({send_dtmf, DTMF}, _From, S=#state{uuid=UUID}) -> {reply, fswitch:api("uuid_send_dtmf ~s ~s", [UUID, DTMF]), S};
+handle_call({setvar, Name, Value}, _From, S=#state{uuid=UUID}) -> {reply, fswitch:api("uuid_setvar ~s ~s ~s", [UUID, Name, Value]), S};
+handle_call({setvar, Name}, _From, S=#state{uuid=UUID}) -> {reply, fswitch:api("uuid_setvar ~s ~s", [UUID, Name]), S};
+handle_call({transfer, Target}, _From, S=#state{uuid=UUID}) -> {reply, fswitch:api("uuid_transfer ~s ~s", [UUID, Target]), S};
+handle_call({transfer, Target, Dialplan}, _From, S=#state{uuid=UUID}) -> {reply, fswitch:api("uuid_transfer ~s ~s ~s", [UUID, Target, Dialplan]), S};
+handle_call({transfer, Target, Dialplan, Context}, _From, S=#state{uuid=UUID}) ->
+	{reply, fswitch:api("uuid_transfer ~s ~s ~s ~s", [UUID, Target, Dialplan, Context]), S};
+handle_call({record, Action, Path}, _From, S=#state{uuid=UUID}) -> {reply, fswitch:api("uuid_record ~s ~s ~s", [UUID, Action, Path]), S};
+
 
 handle_call(_Request, _From, S=#state{}) ->
 	lager:error("unhandled call:~p", [_Request]),
