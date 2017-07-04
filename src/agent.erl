@@ -58,7 +58,6 @@ handle_info({gun_ws, _Pid, {text, Text}}, S) ->
 	handle_ws_text(jiffy:decode(Text, [return_maps])),
 	{noreply, S};
 handle_info({gun_data, _Pid, _StreamRef, fin, _Data}, S) ->
-lager:error("fin:~p", [_Data]),
 	{noreply, S};
 
 handle_info(ping, S=#state{ reach = Pid, ws_msg_id = Id }) ->

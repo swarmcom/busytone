@@ -4,7 +4,6 @@
 -include_lib("busytone/include/busytone.hrl").
 
 -define(CHILD(M, A), #{ id => M, start => {M, start_link, A}, restart => permanent, shutdown => 2000, type => worker }).
--define(CHILDS(M), #{ id => M, start => {M, start_link, []}, restart => permanent, shutdown => infinity, type => supervisor }).
 
 cfg(K) -> {ok, V} = application:get_env(busytone, K), V.
 
@@ -15,9 +14,11 @@ init(_Args) ->
 	lager:notice("start"),
 	SupFlags = #{strategy => one_for_one, intensity => 2, period => 5},
 	Fs = cfg(freeswitch_drone),
+	Host = cfg(reach_host),
+	Port = cfg(reach_port),
 	ChildSpecs = [
 		?CHILD(call_manager, []),
 		?CHILD(fswitch, [Fs]),
-		?CHILDS(agent_sup)
+		?CHILD(agent_sup, [Host, Port])
 	],
 	{ok, {SupFlags, ChildSpecs}}.

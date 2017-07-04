@@ -1,25 +1,37 @@
 -module(agent_sup).
--behaviour(supervisor).
--export([start_link/0, init/1, agent/1, agent/3]).
+-behaviour(gen_server).
 -include_lib("busytone/include/busytone.hrl").
 
--define(CHILD(I, M, A), #{ id => I, start => {M, start_link, A}, restart => permanent, shutdown => 2000, type => worker, modules => []}).
+-export([start_link/2, agent/3]).
 
-cfg(K) -> {ok, V} = application:get_env(busytone, K), V.
+-export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
-start_link() ->
-	supervisor:start_link({local, ?MODULE}, ?MODULE, []).
+-record(state, {
+	host,
+	port
+}).
 
-agent(#agent{login=Login}=A) ->
-	supervisor:start_child(?MODULE, ?CHILD(Login, agent, [cfg(reach_host), cfg(reach_port), A])).
+start_link(Host, Port) -> gen_server:start_link({local, ?MODULE}, ?MODULE, [Host, Port], []).
+agent(Login, Password, Number) -> gen_server:call(?MODULE, #agent{login=Login, password=Password, number=Number}).
 
-agent(Login, Password, Number) -> agent(#agent{login=Login, password=Password, number=Number}).
+init([Host, Port]) ->
+	lager:notice("start, host:~p port:~p", [Host, Port]),
+	{ok, #state{host=Host, port=Port}}.
+handle_cast(_Msg, S=#state{}) ->
+	lager:error("unhandled cast:~p", [_Msg]),
+	{noreply, S}.
+handle_info(_Info, S=#state{}) ->
+	lager:error("unhandled info:~p", [_Info]),
+	{noreply, S}.
 
-init(_Args) ->
-	lager:notice("start"),
-	SupFlags = #{strategy => one_for_one, intensity => 2, period => 5},
-	Agents = cfg(agents),
-	Host = cfg(reach_host),
-	Port = cfg(reach_port),
-	ChildSpecs = [ ?CHILD(Login, agent, [Host, Port, A]) || A=#agent{login=Login} <- Agents ],
-	{ok, {SupFlags, ChildSpecs}}.
+handle_call(A=#agent{login=Login}, _From, S=#state{host=Host, port=Port}) ->
+	agent:start_link(Host, Port, A),
+	{reply, Login, S};
+
+handle_call(_Request, _From, S=#state{}) ->
+	lager:error("unhandled call:~p", [_Request]),
+	{reply, ok, S}.
+terminate(_Reason, _S) ->
+	lager:notice("terminate, reason:~p", [_Reason]),
+	ok.
+code_change(_OldVsn, S=#state{}, _Extra) -> {ok, S}.
