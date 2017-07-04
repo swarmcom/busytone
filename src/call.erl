@@ -3,16 +3,17 @@
 -include_lib("stdlib/include/qlc.hrl").
 
 -export([
-	start_link/1, online/0, pid/1, tuple/1,
+	start_link/1, stop/1, online/0, match_for/2, pid/1, tuple/1, alive/1,
 	vars/1, variables/1,
 	hangup/1, answer/1, park/1, break/1,
 	deflect/2, display/3, getvar/2, hold/1, hold/2, setvar/2, setvar/3, send_dtmf/2,
 	transfer/2, transfer/3, transfer/4, record/3
-	]).
+]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
 -record(state, {
+	call_state,
 	uuid,
 	vars,
 	variables
@@ -23,7 +24,7 @@ start_link(UUID) ->
 
 tuple(UUID) -> {?MODULE, UUID}.
 pid({?MODULE, UUID}) -> pid(UUID);
-pid(UUID) -> lager:notice("~p", [UUID]), gproc:whereis_name({n, l, {?MODULE, UUID}}).
+pid(UUID) -> gproc:whereis_name({n, l, {?MODULE, UUID}}).
 
 safe_call(Id, Msg) when is_pid(Id) -> gen_server:call(Id, Msg);
 safe_call(Id, Msg) ->
@@ -46,6 +47,8 @@ hangup(Id) -> safe_cast(Id, hangup).
 answer(Id) -> safe_cast(Id, answer).
 park(Id) -> safe_cast(Id, park).
 break(Id) -> safe_cast(Id, break).
+stop(Id) -> safe_cast(Id, stop).
+alive(Id) -> safe_cast(Id, alive).
 
 deflect(Id, Target) -> safe_call(Id, {deflect, Target}).
 display(Id, Name, Number) -> safe_call(Id, {display, Name, Number}).
@@ -70,6 +73,10 @@ online() ->
 	Q = qlc:q([ UUID || {{n,l,{?MODULE, UUID}}, _Pid, _} <- gproc:table({l, n}) ]),
 	qlc:e(Q).
 
+match_for(Key, Value) ->
+	Q = qlc:q([ UUID || {{n,l,{?MODULE, UUID}}, _Pid, M = #{}} <- gproc:table({l, n}), maps:get(Key, M, undefined) =:= Value ]),
+	qlc:e(Q).
+
 init([UUID]) ->
 	lager:notice("start, uuid:~s", [UUID]),
 	gproc:reg({n, l, {?MODULE, UUID}}),
@@ -80,6 +87,10 @@ handle_cast(answer, S=#state{uuid=UUID}) -> fswitch:api("uuid_answer ~s", [UUID]
 handle_cast(hangup, S=#state{uuid=UUID}) -> fswitch:api("uuid_kill ~s", [UUID]), {noreply, S};
 handle_cast(park, S=#state{uuid=UUID}) -> fswitch:api("uuid_park ~s", [UUID]), {noreply, S};
 handle_cast(break, S=#state{uuid=UUID}) -> fswitch:api("uuid_break ~s", [UUID]), {noreply, S};
+handle_cast(alive, S=#state{uuid=UUID}) ->
+	{ok, "true"} = fswitch:api("uuid_exists ~s", [UUID]),
+	{noreply, S};
+handle_cast(stop, S=#state{}) -> {stop, normal, S};
 
 handle_cast(_Msg, S=#state{}) ->
 	lager:error("unhandled cast:~p", [_Msg]),
@@ -99,7 +110,7 @@ handle_info(sync_state, S=#state{uuid=UUID}) ->
 	{ok, Dump} = fswitch:api("uuid_dump ~s", [UUID]),
 	Pairs = fswitch:parse_uuid_dump_string(Dump),
 	{Vars, Variables} = fswitch:parse_uuid_dump(Pairs),
-	{noreply, S#state{vars = Vars, variables=Variables }};
+	handle_event(Vars, Variables, S);
 
 handle_info(_Info, S=#state{}) ->
 	lager:error("unhandled info:~p", [_Info]),
@@ -122,7 +133,6 @@ handle_call({transfer, Target, Dialplan, Context}, _From, S=#state{uuid=UUID}) -
 	{reply, fswitch:api("uuid_transfer ~s ~s ~s ~s", [UUID, Target, Dialplan, Context]), S};
 handle_call({record, Action, Path}, _From, S=#state{uuid=UUID}) -> {reply, fswitch:api("uuid_record ~s ~s ~s", [UUID, Action, Path]), S};
 
-
 handle_call(_Request, _From, S=#state{}) ->
 	lager:error("unhandled call:~p", [_Request]),
 	{reply, ok, S}.
@@ -133,9 +143,14 @@ terminate(_Reason, _S=#state{uuid=UUID}) ->
 
 code_change(_OldVsn, S=#state{}, _Extra) -> {ok, S}.
 
-handle_event(Vars = #{ "Event-Name" := Ev }, _Variables, S=#state{}) when _Variables =:= #{} ->
-	lager:info("ev:~p", [Ev]),
-	{noreply, S#state{vars=Vars}};
-handle_event(Vars = #{ "Event-Name" := Ev }, Variables, S=#state{}) ->
-	lager:info("ev with vars:~p", [Ev]),
-	{noreply, S#state{vars=Vars, variables=Variables}}.
+handle_event(Vars = #{ "Event-Name" := Ev }, _Variables, S=#state{uuid=UUID}) when _Variables =:= #{} ->
+	lager:debug("ev:~p", [Ev]),
+	gproc:set_value({n, l, {?MODULE, UUID}}, Vars),
+	{noreply, set_call_state(S#state{vars=Vars})};
+handle_event(Vars = #{ "Event-Name" := Ev }, Variables, S=#state{uuid=UUID}) ->
+	lager:debug("ev with vars:~p", [Ev]),
+	gproc:set_value({n, l, {?MODULE, UUID}}, Vars),
+	{noreply, set_call_state(S#state{vars=Vars, variables=Variables})}.
+
+set_call_state(S=#state{ vars = #{ "Channel-Call-State" := State } }) -> S#state{ call_state = State };
+set_call_state(S) -> S.

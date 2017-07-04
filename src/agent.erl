@@ -92,7 +92,7 @@ handle_cookie(_, S) -> {noreply, S}.
 
 handle_ws_text(#{ <<"result">> := #{ <<"pong">> := _ } }) -> ignore;
 handle_ws_text(Text) ->
-	lager:info("ws in:~p", [Text]).
+	lager:debug("ws in:~p", [Text]).
 
 to_map(H) ->
 	lists:foldl(fun({K,V}, M) -> M#{ K => V } end, #{}, H).
