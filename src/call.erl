@@ -7,7 +7,7 @@
 	vars/1, variables/1,
 	hangup/1, answer/1, park/1, break/1,
 	deflect/2, display/3, getvar/2, hold/1, hold/2, setvar/2, setvar/3, send_dtmf/2,
-	transfer/2, transfer/3, transfer/4, record/3
+	transfer/2, transfer/3, transfer/4, record/3, command/3
 ]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
@@ -49,6 +49,7 @@ park(Id) -> safe_cast(Id, park).
 break(Id) -> safe_cast(Id, break).
 stop(Id) -> safe_cast(Id, stop).
 alive(Id) -> safe_cast(Id, alive).
+command(Id, Command, Args) -> safe_cast(Id, {command, Command, Args}).
 
 deflect(Id, Target) -> safe_call(Id, {deflect, Target}).
 display(Id, Name, Number) -> safe_call(Id, {display, Name, Number}).
@@ -89,6 +90,9 @@ handle_cast(park, S=#state{uuid=UUID}) -> fswitch:api("uuid_park ~s", [UUID]), {
 handle_cast(break, S=#state{uuid=UUID}) -> fswitch:api("uuid_break ~s", [UUID]), {noreply, S};
 handle_cast(alive, S=#state{uuid=UUID}) ->
 	{ok, "true"} = fswitch:api("uuid_exists ~s", [UUID]),
+	{noreply, S};
+handle_cast({command, Command, Args}, S=#state{uuid=UUID}) ->
+	fswitch:command(UUID, Command, Args),
 	{noreply, S};
 handle_cast(stop, S=#state{}) -> {stop, normal, S};
 

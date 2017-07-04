@@ -1,7 +1,7 @@
 -module(fswitch).
 -behaviour(gen_server).
 
--export([start_link/1, api/2, api/1, bgapi/2, bgapi/1, parse_uuid_dump/1, parse_uuid_dump_string/1]).
+-export([start_link/1, api/2, api/1, bgapi/2, bgapi/1, command/3, parse_uuid_dump/1, parse_uuid_dump_string/1]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
@@ -15,6 +15,7 @@ api(Cmd, Args) -> gen_server:call(?MODULE, {api, Cmd, Args}).
 api(Cmd) -> gen_server:call(?MODULE, {api, Cmd, []}).
 bgapi(Cmd, Args) -> gen_server:call(?MODULE, {bgapi, Cmd, Args}).
 bgapi(Cmd) -> gen_server:call(?MODULE, {bgapi, Cmd, []}).
+command(UUID, Command, Args) -> gen_server:call(?MODULE, {command, UUID, Command, Args}).
 
 init([FsDrone]) ->
 	Drone = erlang:list_to_atom(FsDrone),
@@ -40,6 +41,13 @@ handle_call({api, Cmd, Args}, _From, S=#state{drone=Fs}) ->
 
 handle_call({bgapi, Cmd, Args}, _From, S=#state{drone=Fs}) ->
 	{reply, freeswitch:fbgapi(Fs, Cmd, Args), S};
+
+handle_call({command, UUID, Cmd, Args}, _From, S=#state{drone=Fs}) ->
+	{reply, freeswitch:sendmsg(Fs, UUID, [
+		{"call-command", "execute"},
+		{"execute-app-name", Cmd},
+		{"execute-app-arg", Args}
+	]), S};
 
 handle_call(_Request, _From, S=#state{}) ->
 	lager:error("unhandled call:~p", [_Request]),
