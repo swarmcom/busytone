@@ -26,6 +26,7 @@ match_for(Key) ->
 
 agent_match(Number) -> #{ "Caller-Destination-Number" => Number, "Caller-Logical-Direction" => "inbound" }.
 
+is_in(_, undefined) -> false;
 is_in(Inner, Outer) ->
 	case erlang:length(maps:to_list(Inner) -- maps:to_list(Outer)) of
 		0 -> true;

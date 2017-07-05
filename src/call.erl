@@ -95,7 +95,7 @@ handle_info(sync_state, S=#state{uuid=UUID}) ->
 	{ok, Dump} = fswitch:api("uuid_dump ~s", [UUID]),
 	Pairs = fswitch:parse_uuid_dump_string(Dump),
 	{Vars, Variables} = fswitch:parse_uuid_dump(Pairs),
-	bind_agent(Vars),
+	bind_agent(UUID, Vars),
 	handle_event(Vars, Variables, S);
 
 handle_info({'DOWN', _Ref, process, _Pid, _Reason}, S=#state{}) ->
@@ -146,6 +146,6 @@ handle_event(Vars = #{ "Event-Name" := Ev }, Variables, S=#state{uuid=UUID}) ->
 set_call_state(S=#state{ vars = #{ "Channel-Call-State" := State } }) -> S#state{ call_state = State };
 set_call_state(S) -> S.
 
-bind_agent(#{ "Caller-Destination-Number" := Number, "Caller-Logical-Direction" := "inbound" }) ->
-	[ erlang:monitor(process, agent:pid(Agent)) || Agent <- agent_sup:by_number(Number) ];
-bind_agent(_) -> ignore.
+bind_agent(UUID, #{ "Caller-Destination-Number" := Number, "Caller-Logical-Direction" := "inbound" }) ->
+	[ erlang:monitor(process, agent:on_incoming(Agent, UUID)) || Agent <- agent_sup:by_number(Number) ];
+bind_agent(_, _) -> ignore.

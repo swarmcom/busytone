@@ -2,7 +2,12 @@
 -behaviour(gen_server).
 -include_lib("busytone/include/busytone.hrl").
 
--export([start_link/3, start/3, start/4, rpc/3, available/1, release/1, stop/1, calls/1, wait_ws/4, wait_ws/3, is_in/2, pid/1]).
+-export([
+	start_link/3, start/3, start/4, pid/1,
+	rpc/3, available/1, release/1, stop/1,
+	calls/1, wait_for_call/1, on_incoming/2,
+	wait_ws/3, wait_ws/2, is_in/2
+]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
@@ -13,7 +18,10 @@
 	ws_msg_id = 1,
 	request,
 	caller_pid,
-	ws_log
+	ws_log,
+	ws_wait,
+	wait_for_incoming,
+	on_incoming
 }).
 
 -define(STEP, 1000).
@@ -23,6 +31,8 @@ pid(Login) -> gproc:whereis_name({n, l, {?MODULE, Login}}).
 
 rpc(Id, Cmd, Args) -> gen_safe:cast(Id, fun pid/1, {rpc, Cmd, Args}).
 calls(Id) -> gen_safe:call(Id, fun pid/1, calls).
+wait_for_call(Id) -> gen_safe:call(Id, fun pid/1, wait_for_call).
+on_incoming(Id, UUID) -> gen_safe:call(Id, fun pid/1, {on_incoming, UUID}).
 stop(Id) -> gen_safe:cast(Id, fun pid/1, stop).
 available(Id) -> rpc(Id, go_available, []).
 release(Id) -> rpc(Id, go_released, []).
@@ -32,9 +42,9 @@ start(Host, Port, A=#agent{}) -> gen_server:start(?MODULE, [Host, Port, A], []).
 start(Pid, Host, Port, A=#agent{}) -> gen_server:start(?MODULE, [Pid, Host, Port, A], []).
 
 % use call timeout as a failsafe
-wait_ws(Id, Match, Error) -> wait_ws(Id, Match, 5000, Error).
-wait_ws(Id, Match, Timeout, Error) ->
-	gen_safe:call(Id, fun pid/1, {wait_ws, Match, Timeout, Error}, Timeout+?STEP).
+wait_ws(Id, Match) -> wait_ws(Id, Match, 5000).
+wait_ws(Id, Match, Timeout) ->
+	gen_safe:call(Id, fun pid/1, {wait_ws, Match}, Timeout).
 
 init([Pid, Host, Port, A=#agent{}]) ->
 	process_flag(trap_exit, true),
@@ -80,13 +90,9 @@ handle_info(auth, S=#state{ reach = Pid, agent = #agent{login=Login, password=Pa
 		<<"username=", (to_bin(Login))/binary, "&password=", (to_bin(Password))/binary, "&remember=on">>),
 	{noreply, S#state{request=auth}};
 
-handle_info({wait_ws, _From, _Match, Timeout, Error}, S=#state{}) when Timeout =:= 0; Timeout < 0 -> {stop, Error, S};
-handle_info({wait_ws, From, Match, Timeout, Error}, S=#state{ws_log=Log}) ->
-	case search_ws_log(Match, Log) of
-		true -> gen_server:reply(From, Match);
-		false -> timer:send_after(?STEP, {wait_ws, From, Match, Timeout-?STEP, Error})
-	end,
-	{noreply, S};
+handle_info({'DOWN', _Ref, process, Pid, _Reason}, S=#state{ reach=Pid }) ->
+	lager:notice("reach connection is dead, pid:~p reason:~p", [Pid, _Reason]),
+	{stop, normal, S};
 
 handle_info({'EXIT', Pid, _}, S=#state{caller_pid=Pid}) ->
 	{stop, normal, S};
@@ -100,9 +106,23 @@ handle_call(calls, _From, S=#state{agent=#agent{number=Number}}) ->
 	Re = call_manager:match_for(Match),
 	{reply, Re, S};
 
-handle_call({wait_ws, Match, Timeout, Error}, From, S=#state{}) ->
-	self() ! {wait_ws, From, Match, Timeout, Error},
-	{noreply, S};
+handle_call(wait_for_call, _From, S=#state{on_incoming=[UUID]}) -> {reply, [UUID], S#state{on_incoming=undefined}};
+handle_call(wait_for_call, From, S=#state{agent=#agent{number=Number}}) ->
+	case call_manager:match_for(call_manager:agent_match(Number)) of
+		[] -> {noreply, S#state{ wait_for_incoming=From }};
+		Re -> {reply, Re, S}
+	end;
+
+handle_call({on_incoming, UUID}, _From, S=#state{wait_for_incoming=undefined}) -> {reply, self(), S#state{on_incoming=[UUID]}};
+handle_call({on_incoming, UUID}, _From, S=#state{wait_for_incoming=From}) ->
+	gen_server:reply(From, [UUID]),
+	{reply, self(), S#state{wait_for_incoming=undefined}};
+
+handle_call({wait_ws, Match}, From, S=#state{ ws_log = Log }) ->
+	case search_ws_log(Match, Log) of
+		true -> {reply, ok, S#state{ ws_log = [] }};
+		false -> {noreply, S#state{ ws_wait = {Match, From} }}
+	end;
 
 handle_call(_Msg, _From, S=#state{}) ->
 	{reply, ok, S}.
@@ -126,10 +146,20 @@ handle_cookie(#{ <<"set-cookie">> := <<"OUCX=",Cookie/binary>> }, S=#state{ reac
 	{noreply, S#state{ cookie = Cookie1 }};
 handle_cookie(_, S) -> {noreply, S}.
 
-handle_ws_text(#{ <<"result">> := #{ <<"pong">> := _ } }, S) -> {noreply, S};
-handle_ws_text(Text, S=#state{ ws_log = Log }) ->
-	lager:info("ws in:~p", [Text]),
-	{noreply, S#state{ ws_log = [Text | Log ]}}.
+handle_ws_text(#{ <<"result">> := #{ <<"pong">> := _ } }, S) ->
+	{noreply, S};
+handle_ws_text(Msg, S=#state{ ws_wait = undefined, ws_log = Log }) ->
+	lager:debug("ws in:~p", [Msg]),
+	{noreply, S#state{ ws_log = [ Msg | Log ]}};
+handle_ws_text(Msg, S=#state{ ws_wait = {Match,Caller} }) ->
+	lager:debug("ws match, match:~p msg:~p", [Match, Msg]),
+	case is_in(Match, Msg) of
+		true ->
+			gen_server:reply(Caller, ok),
+			{noreply, S#state{ ws_wait = undefined, ws_log = [] }};
+		false -> 
+			{noreply, S}
+	end.
 
 search_ws_log(_, []) -> false;
 search_ws_log(Match, [Msg|Log]) ->
