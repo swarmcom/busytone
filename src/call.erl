@@ -1,9 +1,8 @@
 -module(call).
 -behaviour(gen_server).
--include_lib("stdlib/include/qlc.hrl").
 
 -export([
-	start_link/1, stop/1, online/0, match_for/2, pid/1, tuple/1, alive/1,
+	start_link/1, stop/1, pid/1, tuple/1, alive/1,
 	vars/1, variables/1,
 	hangup/1, answer/1, park/1, break/1,
 	deflect/2, display/3, getvar/2, hold/1, hold/2, setvar/2, setvar/3, send_dtmf/2,
@@ -26,57 +25,49 @@ tuple(UUID) -> {?MODULE, UUID}.
 pid({?MODULE, UUID}) -> pid(UUID);
 pid(UUID) -> gproc:whereis_name({n, l, {?MODULE, UUID}}).
 
-safe_call(Id, Msg) when is_pid(Id) -> gen_server:call(Id, Msg);
-safe_call(Id, Msg) ->
+call(Id, Msg) when is_pid(Id) -> gen_server:call(Id, Msg);
+call(Id, Msg) ->
 	case pid(Id) of
 		undefined -> {error, no_pid};
 		Pid -> gen_server:call(Pid, Msg)
 	end.
 
-safe_cast(Id, Msg) when is_pid(Id) -> gen_server:cast(Id, Msg);
-safe_cast(Id, Msg) ->
+cast(Id, Msg) when is_pid(Id) -> gen_server:cast(Id, Msg);
+cast(Id, Msg) ->
 	case pid(Id) of
 		undefined -> {error, no_pid};
 		Pid -> gen_server:cast(Pid, Msg)
 	end.
 
-vars(Id) -> safe_call(Id, vars).
-variables(Id) -> safe_call(Id, variables).
+vars(Id) -> call(Id, vars).
+variables(Id) -> call(Id, variables).
 
-hangup(Id) -> safe_cast(Id, hangup).
-answer(Id) -> safe_cast(Id, answer).
-park(Id) -> safe_cast(Id, park).
-break(Id) -> safe_cast(Id, break).
-stop(Id) -> safe_cast(Id, stop).
-alive(Id) -> safe_cast(Id, alive).
-command(Id, Command, Args) -> safe_cast(Id, {command, Command, Args}).
+hangup(Id) -> cast(Id, hangup).
+answer(Id) -> cast(Id, answer).
+park(Id) -> cast(Id, park).
+break(Id) -> cast(Id, break).
+stop(Id) -> cast(Id, stop).
+alive(Id) -> cast(Id, alive).
+command(Id, Command, Args) -> cast(Id, {command, Command, Args}).
 
-deflect(Id, Target) -> safe_call(Id, {deflect, Target}).
-display(Id, Name, Number) -> safe_call(Id, {display, Name, Number}).
-getvar(Id, Name) -> safe_call(Id, {getvar, Name}).
-hold(Id) -> safe_call(Id, {hold}).
-hold(Id, off) -> safe_call(Id, {hold, off});
-hold(Id, toggle) -> safe_call(Id, {hold, toggle}).
-send_dtmf(Id, DTMF) -> safe_call(Id, {send_dtmf, DTMF}).
-setvar(Id, Name) -> safe_call(Id, {setvar, Name}).
-setvar(Id, Name, Value) -> safe_call(Id, {setvar, Name, Value}).
-transfer(Id, Target) -> safe_call(Id, {transfer, Target}).
-transfer(Id, Target, Dialplan) -> safe_call(Id, {transfer, Target, Dialplan}).
-transfer(Id, Target, Dialplan, Context) -> safe_call(Id, {transfer, Target, Dialplan, Context}).
-record(Id, Action=start, Path) -> safe_call(Id, {record, Action, Path});
-record(Id, Action=stop, Path) -> safe_call(Id, {record, Action, Path});
-record(Id, Action=mask, Path) -> safe_call(Id, {record, Action, Path});
-record(Id, Action=unmask, Path) -> safe_call(Id, {record, Action, Path}).
+deflect(Id, Target) -> call(Id, {deflect, Target}).
+display(Id, Name, Number) -> call(Id, {display, Name, Number}).
+getvar(Id, Name) -> call(Id, {getvar, Name}).
+hold(Id) -> call(Id, {hold}).
+hold(Id, off) -> call(Id, {hold, off});
+hold(Id, toggle) -> call(Id, {hold, toggle}).
+send_dtmf(Id, DTMF) -> call(Id, {send_dtmf, DTMF}).
+setvar(Id, Name) -> call(Id, {setvar, Name}).
+setvar(Id, Name, Value) -> call(Id, {setvar, Name, Value}).
+transfer(Id, Target) -> call(Id, {transfer, Target}).
+transfer(Id, Target, Dialplan) -> call(Id, {transfer, Target, Dialplan}).
+transfer(Id, Target, Dialplan, Context) -> call(Id, {transfer, Target, Dialplan, Context}).
+record(Id, Action=start, Path) -> call(Id, {record, Action, Path});
+record(Id, Action=stop, Path) -> call(Id, {record, Action, Path});
+record(Id, Action=mask, Path) -> call(Id, {record, Action, Path});
+record(Id, Action=unmask, Path) -> call(Id, {record, Action, Path}).
 
 sync_state(Pid) when is_pid(Pid) -> Pid ! sync_state.
-
-online() ->
-	Q = qlc:q([ UUID || {{n,l,{?MODULE, UUID}}, _Pid, _} <- gproc:table({l, n}) ]),
-	qlc:e(Q).
-
-match_for(Key, Value) ->
-	Q = qlc:q([ UUID || {{n,l,{?MODULE, UUID}}, _Pid, M = #{}} <- gproc:table({l, n}), maps:get(Key, M, undefined) =:= Value ]),
-	qlc:e(Q).
 
 init([UUID]) ->
 	lager:notice("start, uuid:~s", [UUID]),

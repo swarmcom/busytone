@@ -1,9 +1,8 @@
 -module(agent).
 -behaviour(gen_server).
 -include_lib("busytone/include/busytone.hrl").
--include_lib("stdlib/include/qlc.hrl").
 
--export([start_link/3, rpc/3, available/1, release/1, online/0, by_number/1, stop/1]).
+-export([start_link/3, start/3, rpc/3, available/1, release/1, stop/1, calls/1]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
@@ -11,32 +10,34 @@
 	agent,
 	reach,
 	cookie,
-	ws_msg_id = 1
+	ws_msg_id = 1,
+	request
 }).
 
 pid(Login) -> gproc:whereis_name({n, l, {?MODULE, Login}}).
 
-by_number(Number) ->
-	Q = qlc:q([ Login || {_, _Pid, #agent{login=Login, number=N}} <- gproc:table({l, n}), N =:= Number ]),
-	qlc:e(Q).
+call(Id, Msg) when is_pid(Id) -> gen_server:call(Id, Msg);
+call(Id, Msg) ->
+	case pid(Id) of
+		undefined -> {error, no_pid};
+		Pid -> gen_server:call(Pid, Msg)
+	end.
 
-online() ->
-	Q = qlc:q([ A || {_, _Pid, A=#agent{}} <- gproc:table({l, n}) ]),
-	qlc:e(Q).
-
-cast(Login, Msg) when is_pid(Login) -> gen_server:cast(Login, Msg);
-cast(Login, Msg) ->
-	case pid(Login) of
-		undefined -> lager:error("no agent:~p msg:~p", [Login, Msg]), undefined;
+cast(Id, Msg) when is_pid(Id) -> gen_server:cast(Id, Msg);
+cast(Id, Msg) ->
+	case pid(Id) of
+		undefined -> {error, no_pid};
 		Pid -> gen_server:cast(Pid, Msg)
 	end.
 
 rpc(Id, Cmd, Args) -> cast(Id, {rpc, Cmd, Args}).
+calls(Id) -> call(Id, calls).
 stop(Id) -> cast(Id, stop).
 available(Id) -> rpc(Id, go_available, []).
 release(Id) -> rpc(Id, go_released, []).
 
 start_link(Host, Port, A=#agent{}) -> gen_server:start_link(?MODULE, [Host, Port, A], []).
+start(Host, Port, A=#agent{}) -> gen_server:start(?MODULE, [Host, Port, A], []).
 
 init([Host, Port, A=#agent{login=Login}]) ->
 	lager:notice("start agent, login:~p", [Login]),
@@ -49,8 +50,14 @@ handle_info({gun_up, _Pid, http}, S) ->
 	self() ! auth,
 	{noreply, S};
 handle_info({gun_down, _Pid, http, closed, _, _}, S) -> {noreply, S};
-handle_info({gun_response, _Pid, _StreamRef, nofin, _Status, Headers}, S) ->
+
+handle_info({gun_response, _Pid, _StreamRef, nofin, 200, Headers}, S=#state{request=auth}) ->
 	handle_cookie(to_map(Headers), S);
+handle_info({gun_response, _Pid, _StreamRef, nofin, 401, _Headers}, S=#state{request=auth}) ->
+	{stop, auth_failure, S};
+handle_info({gun_response, _Pid, _StreamRef, nofin, Status, Headers}, S) ->
+	lager:info("status:~p headers:~p", [Status, Headers]),
+	{noreply, S};
 handle_info({gun_ws_upgrade, _Pid, ok, _Headers}, S) ->
 	erlang:send_after(1000, self(), ping),
 	{noreply, S};
@@ -58,6 +65,8 @@ handle_info({gun_ws, _Pid, {text, Text}}, S) ->
 	handle_ws_text(jiffy:decode(Text, [return_maps])),
 	{noreply, S};
 handle_info({gun_data, _Pid, _StreamRef, fin, _Data}, S) ->
+	{noreply, S};
+handle_info({gun_data, _Pid, _StreamRef, nofin, _Data}, S) ->
 	{noreply, S};
 
 handle_info(ping, S=#state{ reach = Pid, ws_msg_id = Id }) ->
@@ -68,11 +77,15 @@ handle_info(ping, S=#state{ reach = Pid, ws_msg_id = Id }) ->
 handle_info(auth, S=#state{ reach = Pid, agent = #agent{login=Login, password=Password} }) ->
 	gun:post(Pid, "/login", [{<<"content-type">>, <<"application/x-www-form-urlencoded">>}],
 		<<"username=", (to_bin(Login))/binary, "&password=", (to_bin(Password))/binary, "&remember=on">>),
-	{noreply, S};
+	{noreply, S#state{request=auth}};
 
 handle_info(_Info, S=#state{}) ->
 	lager:error("unhandled info:~p", [_Info]),
 	{noreply, S}.
+
+handle_call(calls, _From, S=#state{agent=#agent{number=Number}}) ->
+	Re = call_manager:match_for(#{ "Caller-Destination-Number" => Number, "Caller-Logical-Direction" => "inbound" }),
+	{reply, Re, S};
 
 handle_call(_Msg, _From, S=#state{}) ->
 	{reply, ok, S}.
@@ -84,7 +97,9 @@ handle_cast(stop, S=#state{}) ->
 	{stop, normal, S};
 
 handle_cast(_Msg, S=#state{}) -> {noreply, S}.
-terminate(_Reason, _S) -> ok.
+terminate(_Reason, _S=#state{reach=Pid}) ->
+	gun:close(Pid),
+	ok.
 code_change(_OldVsn, S=#state{}, _Extra) -> {ok, S}.
 
 handle_cookie(#{ <<"set-cookie">> := <<"OUCX=",Cookie/binary>> }, S=#state{ reach = Pid }) ->
