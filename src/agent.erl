@@ -2,7 +2,7 @@
 -behaviour(gen_server).
 -include_lib("busytone/include/busytone.hrl").
 
--export([start_link/3, start/3, start/4, rpc/3, available/1, release/1, stop/1, calls/1, wait_ws/4]).
+-export([start_link/3, start/3, start/4, rpc/3, available/1, release/1, stop/1, calls/1, wait_ws/4, wait_ws/3, is_in/2]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
@@ -18,6 +18,7 @@
 
 -define(STEP, 1000).
 
+pid(Login) when is_binary(Login) -> pid(erlang:binary_to_list(Login));
 pid(Login) -> gproc:whereis_name({n, l, {?MODULE, Login}}).
 
 rpc(Id, Cmd, Args) -> gen_safe:cast(Id, fun pid/1, {rpc, Cmd, Args}).
@@ -31,6 +32,7 @@ start(Host, Port, A=#agent{}) -> gen_server:start(?MODULE, [Host, Port, A], []).
 start(Pid, Host, Port, A=#agent{}) -> gen_server:start(?MODULE, [Pid, Host, Port, A], []).
 
 % use call timeout as a failsafe
+wait_ws(Id, Match, Error) -> wait_ws(Id, Match, 5000, Error).
 wait_ws(Id, Match, Timeout, Error) ->
 	gen_safe:call(Id, fun pid/1, {wait_ws, Match, Timeout, Error}, Timeout+?STEP).
 
@@ -136,9 +138,10 @@ search_ws_log(Match, [Msg|Log]) ->
 	end.
 
 is_in(Inner, Outer) ->
-	case erlang:length(maps:to_list(Inner) -- maps:to_list(Outer)) of
+	L = maps:to_list(Inner) -- maps:to_list(Outer),
+	case erlang:length(L) of
 		0 -> true;
-		_ -> false
+		_N -> false
 	end.
 
 to_map(H) ->

@@ -2,7 +2,7 @@
 -behaviour(gen_server).
 
 -export([
-	start_link/1, stop/1, pid/1, tuple/1, alive/1,
+	start_link/1, stop/1, pid/1, tuple/1, alive/1, link_process/1,
 	vars/1, variables/1,
 	hangup/1, answer/1, park/1, break/1,
 	deflect/2, display/3, getvar/2, hold/1, hold/2, setvar/2, setvar/3, send_dtmf/2,
@@ -25,47 +25,34 @@ tuple(UUID) -> {?MODULE, UUID}.
 pid({?MODULE, UUID}) -> pid(UUID);
 pid(UUID) -> gproc:whereis_name({n, l, {?MODULE, UUID}}).
 
-call(Id, Msg) when is_pid(Id) -> gen_server:call(Id, Msg);
-call(Id, Msg) ->
-	case pid(Id) of
-		undefined -> {error, no_pid};
-		Pid -> gen_server:call(Pid, Msg)
-	end.
+vars(Id) -> gen_safe:call(Id, fun pid/1, vars).
+variables(Id) -> gen_safe:call(Id, fun pid/1, variables).
 
-cast(Id, Msg) when is_pid(Id) -> gen_server:cast(Id, Msg);
-cast(Id, Msg) ->
-	case pid(Id) of
-		undefined -> {error, no_pid};
-		Pid -> gen_server:cast(Pid, Msg)
-	end.
+hangup(Id) -> gen_safe:cast(Id, fun pid/1, hangup).
+answer(Id) -> gen_safe:cast(Id, fun pid/1, answer).
+park(Id) -> gen_safe:cast(Id, fun pid/1, park).
+break(Id) -> gen_safe:cast(Id, fun pid/1, break).
+stop(Id) -> gen_safe:cast(Id, fun pid/1, stop).
+alive(Id) -> gen_safe:cast(Id, fun pid/1, alive).
+link_process(Id) -> gen_safe:cast(Id, fun pid/1, {link_process, self()}).
+command(Id, Command, Args) -> gen_safe:cast(Id, fun pid/1, {command, Command, Args}).
 
-vars(Id) -> call(Id, vars).
-variables(Id) -> call(Id, variables).
-
-hangup(Id) -> cast(Id, hangup).
-answer(Id) -> cast(Id, answer).
-park(Id) -> cast(Id, park).
-break(Id) -> cast(Id, break).
-stop(Id) -> cast(Id, stop).
-alive(Id) -> cast(Id, alive).
-command(Id, Command, Args) -> cast(Id, {command, Command, Args}).
-
-deflect(Id, Target) -> call(Id, {deflect, Target}).
-display(Id, Name, Number) -> call(Id, {display, Name, Number}).
-getvar(Id, Name) -> call(Id, {getvar, Name}).
-hold(Id) -> call(Id, {hold}).
-hold(Id, off) -> call(Id, {hold, off});
-hold(Id, toggle) -> call(Id, {hold, toggle}).
-send_dtmf(Id, DTMF) -> call(Id, {send_dtmf, DTMF}).
-setvar(Id, Name) -> call(Id, {setvar, Name}).
-setvar(Id, Name, Value) -> call(Id, {setvar, Name, Value}).
-transfer(Id, Target) -> call(Id, {transfer, Target}).
-transfer(Id, Target, Dialplan) -> call(Id, {transfer, Target, Dialplan}).
-transfer(Id, Target, Dialplan, Context) -> call(Id, {transfer, Target, Dialplan, Context}).
-record(Id, Action=start, Path) -> call(Id, {record, Action, Path});
-record(Id, Action=stop, Path) -> call(Id, {record, Action, Path});
-record(Id, Action=mask, Path) -> call(Id, {record, Action, Path});
-record(Id, Action=unmask, Path) -> call(Id, {record, Action, Path}).
+deflect(Id, Target) -> gen_safe:call(Id, fun pid/1, {deflect, Target}).
+display(Id, Name, Number) -> gen_safe:call(Id, fun pid/1, {display, Name, Number}).
+getvar(Id, Name) -> gen_safe:call(Id, fun pid/1, {getvar, Name}).
+hold(Id) -> gen_safe:call(Id, fun pid/1, {hold}).
+hold(Id, off) -> gen_safe:call(Id, fun pid/1, {hold, off});
+hold(Id, toggle) -> gen_safe:call(Id, fun pid/1, {hold, toggle}).
+send_dtmf(Id, DTMF) -> gen_safe:call(Id, fun pid/1, {send_dtmf, DTMF}).
+setvar(Id, Name) -> gen_safe:call(Id, fun pid/1, {setvar, Name}).
+setvar(Id, Name, Value) -> gen_safe:call(Id, fun pid/1, {setvar, Name, Value}).
+transfer(Id, Target) -> gen_safe:call(Id, fun pid/1, {transfer, Target}).
+transfer(Id, Target, Dialplan) -> gen_safe:call(Id, fun pid/1, {transfer, Target, Dialplan}).
+transfer(Id, Target, Dialplan, Context) -> gen_safe:call(Id, fun pid/1, {transfer, Target, Dialplan, Context}).
+record(Id, Action=start, Path) -> gen_safe:call(Id, fun pid/1, {record, Action, Path});
+record(Id, Action=stop, Path) -> gen_safe:call(Id, fun pid/1, {record, Action, Path});
+record(Id, Action=mask, Path) -> gen_safe:call(Id, fun pid/1, {record, Action, Path});
+record(Id, Action=unmask, Path) -> gen_safe:call(Id, fun pid/1, {record, Action, Path}).
 
 sync_state(Pid) when is_pid(Pid) -> Pid ! sync_state.
 
@@ -79,6 +66,10 @@ handle_cast(answer, S=#state{uuid=UUID}) -> fswitch:api("uuid_answer ~s", [UUID]
 handle_cast(hangup, S=#state{uuid=UUID}) -> fswitch:api("uuid_kill ~s", [UUID]), {noreply, S};
 handle_cast(park, S=#state{uuid=UUID}) -> fswitch:api("uuid_park ~s", [UUID]), {noreply, S};
 handle_cast(break, S=#state{uuid=UUID}) -> fswitch:api("uuid_break ~s", [UUID]), {noreply, S};
+handle_cast({link_process, Pid}, S=#state{}) ->
+	process_flag(trap_exit, true),
+	link(Pid),
+	{noreply, S};
 handle_cast(alive, S=#state{uuid=UUID}) ->
 	{ok, "true"} = fswitch:api("uuid_exists ~s", [UUID]),
 	{noreply, S};
@@ -107,6 +98,9 @@ handle_info(sync_state, S=#state{uuid=UUID}) ->
 	{Vars, Variables} = fswitch:parse_uuid_dump(Pairs),
 	handle_event(Vars, Variables, S);
 
+handle_info({'EXIT', _Pid, _}, S=#state{}) ->
+	{stop, normal, S};
+
 handle_info(_Info, S=#state{}) ->
 	lager:error("unhandled info:~p", [_Info]),
 	{noreply, S}.
@@ -134,6 +128,7 @@ handle_call(_Request, _From, S=#state{}) ->
 
 terminate(_Reason, _S=#state{uuid=UUID}) ->
 	lager:notice("terminate, uuid:~s reason:~p", [UUID, _Reason]),
+	fswitch:api("uuid_kill ~s", [UUID]),
 	ok.
 
 code_change(_OldVsn, S=#state{}, _Extra) -> {ok, S}.
