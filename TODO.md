@@ -3,13 +3,20 @@ BusyTone TODO
 
 ## On
 
-1. Create a sample test: agent logs in, go available, receive a call, hangups after some time.
+1. Keep ws messages and call events history, allow to wait for specific event/message
 
 ## Agents
 
 2. On agent's death stop all agent incoming calls as well
 
 ## Tests
+
+1. Create a sample test: agent logs in, go available, receive a call, hangups after some time.
+
+## Other
+
+2. Use sys.config param to place calls to Reach by numbers only
+
 
 Done
 ====
