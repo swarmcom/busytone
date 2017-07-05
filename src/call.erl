@@ -2,7 +2,7 @@
 -behaviour(gen_server).
 
 -export([
-	start_link/1, stop/1, pid/1, tuple/1, alive/1, link_process/1,
+	start_link/1, stop/1, pid/1, tuple/1, alive/1, link_process/2,
 	vars/1, variables/1,
 	hangup/1, answer/1, park/1, break/1,
 	deflect/2, display/3, getvar/2, hold/1, hold/2, setvar/2, setvar/3, send_dtmf/2,
@@ -34,7 +34,7 @@ park(Id) -> gen_safe:cast(Id, fun pid/1, park).
 break(Id) -> gen_safe:cast(Id, fun pid/1, break).
 stop(Id) -> gen_safe:cast(Id, fun pid/1, stop).
 alive(Id) -> gen_safe:cast(Id, fun pid/1, alive).
-link_process(Id) -> gen_safe:cast(Id, fun pid/1, {link_process, self()}).
+link_process(Id, Pid) -> gen_safe:cast(Id, fun pid/1, {link_process, Pid}).
 command(Id, Command, Args) -> gen_safe:cast(Id, fun pid/1, {command, Command, Args}).
 
 deflect(Id, Target) -> gen_safe:call(Id, fun pid/1, {deflect, Target}).
@@ -67,8 +67,7 @@ handle_cast(hangup, S=#state{uuid=UUID}) -> fswitch:api("uuid_kill ~s", [UUID]),
 handle_cast(park, S=#state{uuid=UUID}) -> fswitch:api("uuid_park ~s", [UUID]), {noreply, S};
 handle_cast(break, S=#state{uuid=UUID}) -> fswitch:api("uuid_break ~s", [UUID]), {noreply, S};
 handle_cast({link_process, Pid}, S=#state{}) ->
-	process_flag(trap_exit, true),
-	link(Pid),
+	erlang:monitor(process, Pid),
 	{noreply, S};
 handle_cast(alive, S=#state{uuid=UUID}) ->
 	{ok, "true"} = fswitch:api("uuid_exists ~s", [UUID]),
@@ -96,9 +95,11 @@ handle_info(sync_state, S=#state{uuid=UUID}) ->
 	{ok, Dump} = fswitch:api("uuid_dump ~s", [UUID]),
 	Pairs = fswitch:parse_uuid_dump_string(Dump),
 	{Vars, Variables} = fswitch:parse_uuid_dump(Pairs),
+	bind_agent(Vars),
 	handle_event(Vars, Variables, S);
 
-handle_info({'EXIT', _Pid, _}, S=#state{}) ->
+handle_info({'DOWN', _Ref, process, _Pid, _Reason}, S=#state{}) ->
+	lager:notice("owner is dead, pid:~p reason:~p", [_Pid, _Reason]),
 	{stop, normal, S};
 
 handle_info(_Info, S=#state{}) ->
@@ -144,3 +145,7 @@ handle_event(Vars = #{ "Event-Name" := Ev }, Variables, S=#state{uuid=UUID}) ->
 
 set_call_state(S=#state{ vars = #{ "Channel-Call-State" := State } }) -> S#state{ call_state = State };
 set_call_state(S) -> S.
+
+bind_agent(#{ "Caller-Destination-Number" := Number, "Caller-Logical-Direction" := "inbound" }) ->
+	[ erlang:monitor(process, agent:pid(Agent)) || Agent <- agent_sup:by_number(Number) ];
+bind_agent(_) -> ignore.

@@ -2,7 +2,7 @@
 -behaviour(gen_server).
 -include_lib("busytone/include/busytone.hrl").
 
--export([start_link/3, start/3, start/4, rpc/3, available/1, release/1, stop/1, calls/1, wait_ws/4, wait_ws/3, is_in/2]).
+-export([start_link/3, start/3, start/4, rpc/3, available/1, release/1, stop/1, calls/1, wait_ws/4, wait_ws/3, is_in/2, pid/1]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
@@ -96,7 +96,8 @@ handle_info(_Info, S=#state{}) ->
 	{noreply, S}.
 
 handle_call(calls, _From, S=#state{agent=#agent{number=Number}}) ->
-	Re = call_manager:match_for(#{ "Caller-Destination-Number" => Number, "Caller-Logical-Direction" => "inbound" }),
+	Match = call_manager:agent_match(Number),
+	Re = call_manager:match_for(Match),
 	{reply, Re, S};
 
 handle_call({wait_ws, Match, Timeout, Error}, From, S=#state{}) ->
