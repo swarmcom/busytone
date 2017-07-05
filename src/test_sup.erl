@@ -1,11 +1,17 @@
 -module(test_sup).
 -behaviour(gen_server).
 
--export([start_link/0, run/1]).
+-export([start_link/0, run/1, info/0, debug/0, set_loglevel/1]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
 -record(state, {}).
+
+info() -> set_loglevel(info).
+debug() -> set_loglevel(debug).
+
+set_loglevel(Level) ->
+	lager:set_loglevel(lager_console_backend, Level).
 
 start_link() ->
 	gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
