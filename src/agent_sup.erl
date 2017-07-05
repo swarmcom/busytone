@@ -33,8 +33,8 @@ handle_info(_Info, S=#state{}) ->
 	lager:error("unhandled info:~p", [_Info]),
 	{noreply, S}.
 
-handle_call(A=#agent{login=Login}, _From, S=#state{host=Host, port=Port}) ->
-	agent:start(Host, Port, A),
+handle_call(A=#agent{login=Login}, {Pid, _Ref}, S=#state{host=Host, port=Port}) ->
+	agent:start(Pid, Host, Port, A),
 	{reply, Login, S};
 
 handle_call(_Request, _From, S=#state{}) ->

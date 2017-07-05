@@ -19,6 +19,7 @@ init(_Args) ->
 	ChildSpecs = [
 		?CHILD(call_manager, []),
 		?CHILD(fswitch, [Fs]),
-		?CHILD(agent_sup, [Host, Port])
+		?CHILD(agent_sup, [Host, Port]),
+		?CHILD(test_sup, [])
 	],
 	{ok, {SupFlags, ChildSpecs}}.

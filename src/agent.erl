@@ -2,7 +2,7 @@
 -behaviour(gen_server).
 -include_lib("busytone/include/busytone.hrl").
 
--export([start_link/3, start/3, rpc/3, available/1, release/1, stop/1, calls/1]).
+-export([start_link/3, start/3, start/4, rpc/3, available/1, release/1, stop/1, calls/1, wait_ws/4]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
@@ -11,40 +11,40 @@
 	reach,
 	cookie,
 	ws_msg_id = 1,
-	request
+	request,
+	caller_pid,
+	ws_log
 }).
+
+-define(STEP, 1000).
 
 pid(Login) -> gproc:whereis_name({n, l, {?MODULE, Login}}).
 
-call(Id, Msg) when is_pid(Id) -> gen_server:call(Id, Msg);
-call(Id, Msg) ->
-	case pid(Id) of
-		undefined -> {error, no_pid};
-		Pid -> gen_server:call(Pid, Msg)
-	end.
-
-cast(Id, Msg) when is_pid(Id) -> gen_server:cast(Id, Msg);
-cast(Id, Msg) ->
-	case pid(Id) of
-		undefined -> {error, no_pid};
-		Pid -> gen_server:cast(Pid, Msg)
-	end.
-
-rpc(Id, Cmd, Args) -> cast(Id, {rpc, Cmd, Args}).
-calls(Id) -> call(Id, calls).
-stop(Id) -> cast(Id, stop).
+rpc(Id, Cmd, Args) -> gen_safe:cast(Id, fun pid/1, {rpc, Cmd, Args}).
+calls(Id) -> gen_safe:call(Id, fun pid/1, calls).
+stop(Id) -> gen_safe:cast(Id, fun pid/1, stop).
 available(Id) -> rpc(Id, go_available, []).
 release(Id) -> rpc(Id, go_released, []).
 
 start_link(Host, Port, A=#agent{}) -> gen_server:start_link(?MODULE, [Host, Port, A], []).
 start(Host, Port, A=#agent{}) -> gen_server:start(?MODULE, [Host, Port, A], []).
+start(Pid, Host, Port, A=#agent{}) -> gen_server:start(?MODULE, [Pid, Host, Port, A], []).
 
+% use call timeout as a failsafe
+wait_ws(Id, Match, Timeout, Error) ->
+	gen_safe:call(Id, fun pid/1, {wait_ws, Match, Timeout, Error}, Timeout+?STEP).
+
+init([Pid, Host, Port, A=#agent{}]) ->
+	process_flag(trap_exit, true),
+	link(Pid),
+	{ok, State} = init([Host, Port, A]),
+	{ok, State#state{caller_pid=Pid}};
 init([Host, Port, A=#agent{login=Login}]) ->
 	lager:notice("start agent, login:~p", [Login]),
-	{ok, Pid} = gun:open(Host, Port),
+	{ok, Reach} = gun:open(Host, Port),
+	monitor(process, Reach),
 	gproc:reg({n, l, {?MODULE, Login}}, A),
-	monitor(process, Pid),
-	{ok, #state{ reach = Pid, agent = A}}.
+	{ok, #state{ reach = Reach, agent = A, ws_log = [] }}.
 
 handle_info({gun_up, _Pid, http}, S) -> 
 	self() ! auth,
@@ -62,8 +62,7 @@ handle_info({gun_ws_upgrade, _Pid, ok, _Headers}, S) ->
 	erlang:send_after(1000, self(), ping),
 	{noreply, S};
 handle_info({gun_ws, _Pid, {text, Text}}, S) ->
-	handle_ws_text(jiffy:decode(Text, [return_maps])),
-	{noreply, S};
+	handle_ws_text(jiffy:decode(Text, [return_maps]), S);
 handle_info({gun_data, _Pid, _StreamRef, fin, _Data}, S) ->
 	{noreply, S};
 handle_info({gun_data, _Pid, _StreamRef, nofin, _Data}, S) ->
@@ -79,6 +78,17 @@ handle_info(auth, S=#state{ reach = Pid, agent = #agent{login=Login, password=Pa
 		<<"username=", (to_bin(Login))/binary, "&password=", (to_bin(Password))/binary, "&remember=on">>),
 	{noreply, S#state{request=auth}};
 
+handle_info({wait_ws, _From, _Match, Timeout, Error}, S=#state{}) when Timeout =:= 0; Timeout < 0 -> {stop, Error, S};
+handle_info({wait_ws, From, Match, Timeout, Error}, S=#state{ws_log=Log}) ->
+	case search_ws_log(Match, Log) of
+		true -> gen_server:reply(From, Match);
+		false -> timer:send_after(?STEP, {wait_ws, From, Match, Timeout-?STEP, Error})
+	end,
+	{noreply, S};
+
+handle_info({'EXIT', Pid, _}, S=#state{caller_pid=Pid}) ->
+	{stop, normal, S};
+
 handle_info(_Info, S=#state{}) ->
 	lager:error("unhandled info:~p", [_Info]),
 	{noreply, S}.
@@ -86,6 +96,10 @@ handle_info(_Info, S=#state{}) ->
 handle_call(calls, _From, S=#state{agent=#agent{number=Number}}) ->
 	Re = call_manager:match_for(#{ "Caller-Destination-Number" => Number, "Caller-Logical-Direction" => "inbound" }),
 	{reply, Re, S};
+
+handle_call({wait_ws, Match, Timeout, Error}, From, S=#state{}) ->
+	self() ! {wait_ws, From, Match, Timeout, Error},
+	{noreply, S};
 
 handle_call(_Msg, _From, S=#state{}) ->
 	{reply, ok, S}.
@@ -98,6 +112,7 @@ handle_cast(stop, S=#state{}) ->
 
 handle_cast(_Msg, S=#state{}) -> {noreply, S}.
 terminate(_Reason, _S=#state{reach=Pid}) ->
+	lager:notice("terminate, reason:~p", [_Reason]),
 	gun:close(Pid),
 	ok.
 code_change(_OldVsn, S=#state{}, _Extra) -> {ok, S}.
@@ -108,9 +123,23 @@ handle_cookie(#{ <<"set-cookie">> := <<"OUCX=",Cookie/binary>> }, S=#state{ reac
 	{noreply, S#state{ cookie = Cookie1 }};
 handle_cookie(_, S) -> {noreply, S}.
 
-handle_ws_text(#{ <<"result">> := #{ <<"pong">> := _ } }) -> ignore;
-handle_ws_text(Text) ->
-	lager:debug("ws in:~p", [Text]).
+handle_ws_text(#{ <<"result">> := #{ <<"pong">> := _ } }, S) -> {noreply, S};
+handle_ws_text(Text, S=#state{ ws_log = Log }) ->
+	lager:info("ws in:~p", [Text]),
+	{noreply, S#state{ ws_log = [Text | Log ]}}.
+
+search_ws_log(_, []) -> false;
+search_ws_log(Match, [Msg|Log]) ->
+	case is_in(Match, Msg) of
+		true -> true;
+		false -> search_ws_log(Match, Log)
+	end.
+
+is_in(Inner, Outer) ->
+	case erlang:length(maps:to_list(Inner) -- maps:to_list(Outer)) of
+		0 -> true;
+		_ -> false
+	end.
 
 to_map(H) ->
 	lists:foldl(fun({K,V}, M) -> M#{ K => V } end, #{}, H).

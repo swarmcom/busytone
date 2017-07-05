@@ -16,7 +16,7 @@ BusyTone TODO
 ## Other
 
 2. Use sys.config param to place calls to Reach by numbers only
-
+3. Add call stubs for agent? e.g. agent:hangup/1, agent:answer/1?
 
 Done
 ====
