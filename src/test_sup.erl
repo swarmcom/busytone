@@ -38,7 +38,9 @@ handle_info(_Info, S=#state{}) ->
 	{noreply, S}.
 
 handle_call({run, Test}, _From, S=#state{}) ->
-	erlang:spawn_link(Test, main, []),
+	{ok, Pid} = test_run:start_link(),
+	test_run:run(Pid, Test),
+	test_run:stop(Pid),
 	{reply, ok, S};
 
 handle_call(_Request, _From, S=#state{}) ->

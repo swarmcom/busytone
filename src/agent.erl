@@ -6,7 +6,7 @@
 	start_link/3, start/3, start/4, pid/1,
 	rpc/3, available/1, release/1, stop/1,
 	calls/1, wait_for_call/1, on_incoming/2,
-	wait_ws/3, wait_ws/2, is_in/2
+	wait_ws/3, wait_ws/2
 ]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
@@ -16,10 +16,9 @@
 	reach,
 	cookie,
 	ws_msg_id = 1,
-	request,
+	http_request,
 	caller_pid,
 	ws_log,
-	ws_wait,
 	wait_for_incoming,
 	on_incoming
 }).
@@ -46,6 +45,7 @@ wait_ws(Id, Match) -> wait_ws(Id, Match, 5000).
 wait_ws(Id, Match, Timeout) ->
 	gen_safe:call(Id, fun pid/1, {wait_ws, Match}, Timeout).
 
+% this clause is to link with caller process of fun call_manager:originate
 init([Pid, Host, Port, A=#agent{}]) ->
 	process_flag(trap_exit, true),
 	link(Pid),
@@ -56,16 +56,17 @@ init([Host, Port, A=#agent{login=Login}]) ->
 	{ok, Reach} = gun:open(Host, Port),
 	monitor(process, Reach),
 	gproc:reg({n, l, {?MODULE, Login}}, A),
-	{ok, #state{ reach = Reach, agent = A, ws_log = [] }}.
+	{ok, WsLog} = agent_ws_log:start_link(),
+	{ok, #state{ reach = Reach, agent = A, ws_log = WsLog }}.
 
 handle_info({gun_up, _Pid, http}, S) -> 
 	self() ! auth,
 	{noreply, S};
 handle_info({gun_down, _Pid, http, closed, _, _}, S) -> {noreply, S};
 
-handle_info({gun_response, _Pid, _StreamRef, nofin, 200, Headers}, S=#state{request=auth}) ->
+handle_info({gun_response, _Pid, _StreamRef, nofin, 200, Headers}, S=#state{http_request=auth}) ->
 	handle_cookie(to_map(Headers), S);
-handle_info({gun_response, _Pid, _StreamRef, nofin, 401, _Headers}, S=#state{request=auth}) ->
+handle_info({gun_response, _Pid, _StreamRef, nofin, 401, _Headers}, S=#state{http_request=auth}) ->
 	{stop, auth_failure, S};
 handle_info({gun_response, _Pid, _StreamRef, nofin, Status, Headers}, S) ->
 	lager:info("status:~p headers:~p", [Status, Headers]),
@@ -88,7 +89,7 @@ handle_info(ping, S=#state{ reach = Pid, ws_msg_id = Id }) ->
 handle_info(auth, S=#state{ reach = Pid, agent = #agent{login=Login, password=Password} }) ->
 	gun:post(Pid, "/login", [{<<"content-type">>, <<"application/x-www-form-urlencoded">>}],
 		<<"username=", (to_bin(Login))/binary, "&password=", (to_bin(Password))/binary, "&remember=on">>),
-	{noreply, S#state{request=auth}};
+	{noreply, S#state{http_request=auth}};
 
 handle_info({'DOWN', _Ref, process, Pid, _Reason}, S=#state{ reach=Pid }) ->
 	lager:notice("reach connection is dead, pid:~p reason:~p", [Pid, _Reason]),
@@ -118,10 +119,10 @@ handle_call({on_incoming, UUID}, _From, S=#state{wait_for_incoming=From}) ->
 	gen_server:reply(From, [UUID]),
 	{reply, self(), S#state{wait_for_incoming=undefined}};
 
-handle_call({wait_ws, Match}, From, S=#state{ ws_log = Log }) ->
-	case search_ws_log(Match, Log) of
-		true -> {reply, ok, S#state{ ws_log = [] }};
-		false -> {noreply, S#state{ ws_wait = {Match, From} }}
+handle_call({wait_ws, Match}, From, S=#state{ ws_log = WsLog }) ->
+	case agent_ws_log:wait(WsLog, Match, From) of
+		no_match -> {noreply, S};
+		{match, _Ts, _} = Re -> {reply, Re, S}
 	end;
 
 handle_call(_Msg, _From, S=#state{}) ->
@@ -148,32 +149,13 @@ handle_cookie(_, S) -> {noreply, S}.
 
 handle_ws_text(#{ <<"result">> := #{ <<"pong">> := _ } }, S) ->
 	{noreply, S};
-handle_ws_text(Msg, S=#state{ ws_wait = undefined, ws_log = Log }) ->
-	lager:debug("ws in:~p", [Msg]),
-	{noreply, S#state{ ws_log = [ Msg | Log ]}};
-handle_ws_text(Msg, S=#state{ ws_wait = {Match,Caller} }) ->
-	lager:debug("ws match, match:~p msg:~p", [Match, Msg]),
-	case is_in(Match, Msg) of
-		true ->
-			gen_server:reply(Caller, ok),
-			{noreply, S#state{ ws_wait = undefined, ws_log = [] }};
-		false -> 
-			{noreply, S}
-	end.
-
-search_ws_log(_, []) -> false;
-search_ws_log(Match, [Msg|Log]) ->
-	case is_in(Match, Msg) of
-		true -> true;
-		false -> search_ws_log(Match, Log)
-	end.
-
-is_in(Inner, Outer) ->
-	L = maps:to_list(Inner) -- maps:to_list(Outer),
-	case erlang:length(L) of
-		0 -> true;
-		_N -> false
-	end.
+handle_ws_text(Msg, S=#state{ ws_log = WsLog }) ->
+	lager:debug("ws in, msg:~p", [Msg]),
+	case agent_ws_log:add(WsLog, Msg) of
+		{match, Caller, {Ts, Msg}} -> gen_server:reply(Caller, {match, Ts, Msg});
+		_ -> skip
+	end,
+	{noreply, S}.
 
 to_map(H) ->
 	lists:foldl(fun({K,V}, M) -> M#{ K => V } end, #{}, H).
