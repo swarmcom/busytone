@@ -2,11 +2,13 @@
 -behaviour(gen_server).
 
 -export([
-	start_link/1, pid/1, tuple/1, alive/1, link_process/2, wait_hangup/1, subscribe/1,
+	start_link/1, pid/1, tuple/1, alive/1, link_process/2, wait_hangup/1, subscribe/2, unsubscribe/2,
 	vars/1, variables/1,
 	hangup/1, answer/1, park/1, break/1,
-	deflect/2, display/3, getvar/2, hold/1, hold/2, setvar/2, setvar/3, send_dtmf/2,
-	transfer/2, transfer/3, transfer/4, record/3, command/3
+	deflect/2, display/3, getvar/2, hold/1, hold/2, setvar/2, setvar/3, send_dtmf/2, broadcast/2, displace/3,
+	execute/3, tone_detect/4, detect_tone/2, stop_detect_tone/1,
+	transfer/2, transfer/3, transfer/4, record/3, command/3,
+	wait_event/2, wait_event/3
 ]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
@@ -16,7 +18,8 @@
 	uuid,
 	vars,
 	variables,
-	wait_hangup = []
+	wait_hangup = [],
+	event_log
 }).
 
 start_link(UUID) ->
@@ -26,7 +29,10 @@ start_link(UUID) ->
 tuple(UUID) -> {?MODULE, UUID}.
 pid({?MODULE, UUID}) -> pid(UUID);
 pid(UUID) -> gproc:whereis_name({n, l, {?MODULE, UUID}}).
-subscribe(UUID) -> gproc:reg({p, l, {?MODULE, UUID}}, subscribe).
+subscribe(uuid, UUID) -> gproc:reg({p, l, {?MODULE, uuid, UUID}}, subscribe);
+subscribe(event, Event) -> gproc:reg({p, l, {?MODULE, event, Event}}, subscribe).
+unsubscribe(uuid, UUID) -> gproc:unreg({p, l, {?MODULE, uuid, UUID}});
+unsubscribe(event, Event) -> gproc:unreg({p, l, {?MODULE, event, Event}}).
 
 vars(Id) -> gen_safe:call(Id, fun pid/1, vars).
 variables(Id) -> gen_safe:call(Id, fun pid/1, variables).
@@ -36,6 +42,12 @@ answer(Id) -> gen_safe:cast(Id, fun pid/1, answer).
 park(Id) -> gen_safe:cast(Id, fun pid/1, park).
 break(Id) -> gen_safe:cast(Id, fun pid/1, break).
 alive(Id) -> gen_safe:cast(Id, fun pid/1, alive).
+tone_detect(Id, EvName, Tone, Timeout) -> gen_safe:cast(Id, fun pid/1, {tone_detect, EvName, Tone, Timeout}).
+detect_tone(Id, ToneName) -> gen_safe:cast(Id, fun pid/1, {detect_tone, ToneName}).
+stop_detect_tone(Id) -> gen_safe:cast(Id, fun pid/1, stop_detect_tone).
+broadcast(Id, Path) -> gen_safe:cast(Id, fun pid/1, {broadcast, Path}).
+displace(Id, Cmd, Path) -> gen_safe:cast(Id, fun pid/1, {displace, Cmd, Path}).
+execute(Id, Cmd, Args) -> gen_safe:cast(Id, fun pid/1, {execute, Cmd, Args}).
 
 link_process(Id, Pid) -> gen_safe:cast(Id, fun pid/1, {link_process, Pid}).
 command(Id, Command, Args) -> gen_safe:cast(Id, fun pid/1, {command, Command, Args}).
@@ -58,13 +70,18 @@ record(Id, Action=stop, Path) -> gen_safe:call(Id, fun pid/1, {record, Action, P
 record(Id, Action=mask, Path) -> gen_safe:call(Id, fun pid/1, {record, Action, Path});
 record(Id, Action=unmask, Path) -> gen_safe:call(Id, fun pid/1, {record, Action, Path}).
 
+wait_event(Id, Match) -> wait_event(Id, Match, 5000).
+wait_event(Id, Match, Timeout) ->
+	gen_safe:call(Id, fun pid/1, {wait_event, Match}, Timeout).
+
 sync_state(Pid) when is_pid(Pid) -> Pid ! sync_state.
 
 init([UUID]) ->
 	lager:info("start, uuid:~s", [UUID]),
 	gproc:reg({n, l, {?MODULE, UUID}}),
 	sync_state(self()),
-	{ok, #state{uuid = UUID}}.
+	{ok, EvLog} = event_log:start_link(),
+	{ok, #state{uuid = UUID, event_log = EvLog}}.
 
 handle_cast(answer, S=#state{uuid=UUID}) -> fswitch:api("uuid_answer ~s", [UUID]), {noreply, S};
 handle_cast(park, S=#state{uuid=UUID}) -> fswitch:api("uuid_park ~s", [UUID]), {noreply, S};
@@ -78,7 +95,29 @@ handle_cast(alive, S=#state{uuid=UUID}) ->
 handle_cast({command, Command, Args}, S=#state{uuid=UUID}) ->
 	fswitch:command(UUID, Command, Args),
 	{noreply, S};
-handle_cast(hangup, S=#state{}) -> {stop, normal, S};
+handle_cast(hangup, S=#state{uuid=UUID}) ->
+	fswitch:api("uuid_kill ~s", [UUID]),
+	{noreply, S};
+% doesn't work?
+handle_cast({tone_detect, Name, Tone, Timeout}, S=#state{uuid=UUID}) ->
+	fswitch:api("tone_detect ~s ~s ~s r +~p stop_tone_detect '' 1", [UUID, Name, Tone, Timeout]),
+	{noreply, S};
+handle_cast({detect_tone, ToneName}, S=#state{uuid=UUID}) ->
+	fswitch:api("spandsp_start_tone_detect ~s ~s", [UUID, ToneName]),
+	{noreply, S};
+handle_cast(stop_detect_tone, S=#state{uuid=UUID}) ->
+	fswitch:api("spandsp_stop_tone_detect ~s", [UUID]),
+	{noreply, S};
+
+handle_cast({broadcast, Path}, S=#state{uuid=UUID}) ->
+	fswitch:api("uuid_broadcast ~s ~s", [UUID, Path]),
+	{noreply, S};
+handle_cast({displace, Cmd, Path}, S=#state{uuid=UUID}) ->
+	fswitch:api("uuid_displace ~s ~s ~s", [UUID, Cmd, Path]),
+	{noreply, S};
+handle_cast({execute, Cmd, Path}, S=#state{uuid=UUID}) ->
+	fswitch:execute(UUID, Cmd, Path),
+	{noreply, S};
 
 handle_cast(_Msg, S=#state{}) ->
 	lager:error("unhandled cast:~p", [_Msg]),
@@ -98,8 +137,7 @@ handle_info(sync_state, S=#state{uuid=UUID}) ->
 	{ok, Dump} = fswitch:api("uuid_dump ~s", [UUID]),
 	Pairs = fswitch:parse_uuid_dump_string(Dump),
 	{Vars, Variables} = fswitch:parse_uuid_dump(Pairs),
-	bind_agent(UUID, Vars),
-	handle_event(Vars, Variables, S);
+	handle_event(Vars#{ "Event-Name" => "SYNC" }, Variables, S);
 
 handle_info({'DOWN', _Ref, process, _Pid, _Reason}, S=#state{}) ->
 	lager:info("owner is dead, pid:~p reason:~p", [_Pid, _Reason]),
@@ -128,6 +166,12 @@ handle_call({record, Action, Path}, _From, S=#state{uuid=UUID}) -> {reply, fswit
 % just wait process to die
 handle_call({wait_hangup}, From, S=#state{wait_hangup=WaitList}) -> {noreply, S#state{wait_hangup=[From|WaitList]}};
 
+handle_call({wait_event, Match}, From, S=#state{ event_log = EvLog }) ->
+	case event_log:wait(EvLog, Match, From) of
+		no_match -> {noreply, S};
+		{match, _Ts, _} = Re -> {reply, Re, S}
+	end;
+
 handle_call(_Request, _From, S=#state{}) ->
 	lager:error("unhandled call:~p", [_Request]),
 	{reply, ok, S}.
@@ -140,10 +184,15 @@ terminate(_Reason, _S=#state{uuid=UUID, wait_hangup=WaitList}) ->
 
 code_change(_OldVsn, S=#state{}, _Extra) -> {ok, S}.
 
-handle_event(Vars = #{ "Event-Name" := Ev }, Variables, S=#state{uuid=UUID}) ->
-	lager:debug("ev:~p", [Ev]),
-	gproc:send({p, l, {call, UUID}}, Ev),
+handle_event(Vars = #{ "Event-Name" := Ev }, Variables, S=#state{uuid=UUID, event_log=EvLog}) ->
+	lager:debug("ev:~s uuid:~s", [Ev, UUID]),
+	gproc:send({p, l, {?MODULE, uuid, UUID}}, {?MODULE, Ev}),
+	gproc:send({p, l, {?MODULE, event, Ev}}, {?MODULE, UUID, Vars}),
 	gproc:set_value({n, l, {?MODULE, UUID}}, Vars),
+	case event_log:add(EvLog, Vars) of
+		{match, Caller, {Ts, Msg}} -> gen_server:reply(Caller, {match, Ts, Msg});
+		_ -> skip
+	end,
 	{noreply, set_call_state(maybe_set_vairables(Variables, S#state{vars=Vars}))}.
 
 set_call_state(S=#state{ vars = #{ "Channel-Call-State" := State } }) -> S#state{ call_state = State };
@@ -151,7 +200,3 @@ set_call_state(S) -> S.
 
 maybe_set_vairables(Variables, S) when Variables =:= #{} -> S;
 maybe_set_vairables(Variables, S) -> S#state{variables=Variables}.
-
-bind_agent(UUID, #{ "Caller-Destination-Number" := Number, "Caller-Logical-Direction" := "inbound" }) ->
-	[ erlang:monitor(process, agent:on_incoming(Agent, UUID)) || Agent <- agent_sup:by_number(Number) ];
-bind_agent(_, _) -> ignore.

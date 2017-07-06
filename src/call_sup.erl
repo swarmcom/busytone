@@ -5,7 +5,10 @@
 % accept and manage incoming agent callls
 -define(ORIGINATE_TIMEOUT, 5000).
 
--export([start_link/0, originate/3, originate/2, originate/1, online/0, match_for/1, agent_match/1]).
+-export([
+	start_link/0, originate/3, originate/2, originate/1, online/0, match_for/1, agent_match/1,
+	ensureTalking/2, ensureTalking/3
+]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
@@ -109,3 +112,12 @@ stringify_opts([]) -> "";
 stringify_opts(Opts) when is_list(Opts) ->
 	Str = string:join([ io_lib:format("~s=~s", [K,V]) || {K, V} <- Opts ], ","),
 	io_lib:format("{~s}", [Str]).
+
+ensureTalking(UUID1, UUID2) -> ensureTalking(UUID1, UUID2, 5000).
+
+ensureTalking(UUID1, UUID2, Timeout) ->
+	call:execute(UUID1, "playback", "tone_stream://%(3000, 0, 2600)"),
+	call:detect_tone(UUID2, "2600"),
+	call:wait_event(UUID2, #{ "Event-Name" => "DETECTED_TONE" }, Timeout),
+	call:stop_detect_tone(UUID2).
+

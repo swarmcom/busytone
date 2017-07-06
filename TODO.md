@@ -3,7 +3,6 @@ BusyTone TODO
 
 ## On
 
-1. Notification system: notify agent on call, notify call on agent death, etc. grpoc?
 2. Allow to execute tests in a sequence, but each in it's own process (not to spawn)
 3. Ensure talking by issuing/detecting DTMF
 
@@ -15,6 +14,7 @@ BusyTone TODO
 Done
 ====
 
+1. Notification system: notify agent on call, notify call on agent death, etc. grpoc?
 2. On agent's death stop all agent incoming calls as well
 2. Speedup event waiting by matching on-event
 3. Optimize history lookup

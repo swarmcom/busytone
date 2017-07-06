@@ -1,7 +1,5 @@
-
--module(agent_ws_log).
+-module(event_log).
 -behaviour(gen_server).
--compile({no_auto_import,[now/0]}).
 
 -export([start_link/0, add/2, wait/3]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
@@ -41,7 +39,7 @@ handle_info(_Info, S=#state{}) -> {noreply, S}.
 terminate(_Reason, _S) -> ok.
 code_change(_OldVsn, S=#state{}, _Extra) -> {ok, S}.
 
-lookback(Match, Log) -> lookback(2, Match, Log).
+lookback(Match, Log) -> lookback(5, Match, Log).
 lookback(0, _, _) -> not_found;
 lookback(_, _, []) -> not_found;
 lookback(Depth, Match, [{Ts,Msg} | Log]) ->

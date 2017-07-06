@@ -56,7 +56,8 @@ init([Host, Port, A=#agent{login=Login}]) ->
 	{ok, Reach} = gun:open(Host, Port),
 	monitor(process, Reach),
 	gproc:reg({n, l, {?MODULE, Login}}, A),
-	{ok, WsLog} = agent_ws_log:start_link(),
+	call:subscribe(event, "SYNC"),
+	{ok, WsLog} = event_log:start_link(),
 	{ok, #state{ reach = Reach, agent = A, ws_log = WsLog }}.
 
 handle_info({gun_up, _Pid, http}, S) -> 
@@ -95,6 +96,12 @@ handle_info({'DOWN', _Ref, process, Pid, _Reason}, S=#state{ reach=Pid }) ->
 	lager:info("reach connection is dead, pid:~p reason:~p", [Pid, _Reason]),
 	{stop, normal, S};
 
+handle_info({call, UUID, #{ "Caller-Destination-Number" := Number, "Caller-Logical-Direction" := "inbound" }}, S=#state{ agent=#agent{ number = Number }}) ->
+	call:link_process(UUID, self()),
+	handle_incoming_call(UUID, S);
+handle_info({call, _, _}, S=#state{}) ->
+	{noreply, S};
+
 handle_info({'EXIT', Pid, _}, S=#state{caller_pid=Pid}) ->
 	{stop, normal, S};
 
@@ -116,13 +123,8 @@ handle_call(wait_for_call, From, S=#state{agent=#agent{number=Number}}) ->
 			{reply, Re, S#state{on_incoming=undefined}}
 	end;
 
-handle_call({on_incoming, UUID}, _From, S=#state{wait_for_incoming=undefined}) -> {reply, self(), S#state{on_incoming=[UUID]}};
-handle_call({on_incoming, UUID}, _From, S=#state{wait_for_incoming=From}) ->
-	gen_server:reply(From, [UUID]),
-	{reply, self(), S#state{wait_for_incoming=undefined}};
-
 handle_call({wait_ws, Match}, From, S=#state{ ws_log = WsLog }) ->
-	case agent_ws_log:wait(WsLog, Match, From) of
+	case event_log:wait(WsLog, Match, From) of
 		no_match -> {noreply, S};
 		{match, _Ts, _} = Re -> {reply, Re, S}
 	end;
@@ -153,11 +155,16 @@ handle_ws_text(#{ <<"result">> := #{ <<"pong">> := _ } }, S) ->
 	{noreply, S};
 handle_ws_text(Msg, S=#state{ ws_log = WsLog }) ->
 	lager:debug("ws in, msg:~p", [Msg]),
-	case agent_ws_log:add(WsLog, Msg) of
+	case event_log:add(WsLog, Msg) of
 		{match, Caller, {Ts, Msg}} -> gen_server:reply(Caller, {match, Ts, Msg});
 		_ -> skip
 	end,
 	{noreply, S}.
+
+handle_incoming_call(UUID, S=#state{wait_for_incoming=undefined}) -> {noreply, S#state{on_incoming=[UUID]}};
+handle_incoming_call(UUID, S=#state{wait_for_incoming=From}) ->
+	gen_server:reply(From, [UUID]),
+	{noreply, S#state{on_incoming=undefined}}.
 
 to_map(H) ->
 	lists:foldl(fun({K,V}, M) -> M#{ K => V } end, #{}, H).
