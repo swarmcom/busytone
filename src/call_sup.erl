@@ -1,4 +1,4 @@
--module(call_manager).
+-module(call_sup).
 -behaviour(gen_server).
 -include_lib("stdlib/include/qlc.hrl").
 

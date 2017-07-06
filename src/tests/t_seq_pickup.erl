@@ -2,8 +2,8 @@
 -export([main/0]).
 
 main() ->
-	call_manager:originate("sofia/gateway/reach/9999"),
-	call_manager:originate("sofia/gateway/reach/9999"),
+	call_sup:originate("sofia/gateway/reach/9999"),
+	call_sup:originate("sofia/gateway/reach/9999"),
 	Agent = agent_sup:agent("agent1", "1234", "agent1"),
 	agent:wait_ws(Agent, #{ <<"username">> => Agent }),
 	agent:available(Agent),

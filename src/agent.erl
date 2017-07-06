@@ -45,7 +45,7 @@ wait_ws(Id, Match) -> wait_ws(Id, Match, 5000).
 wait_ws(Id, Match, Timeout) ->
 	gen_safe:call(Id, fun pid/1, {wait_ws, Match}, Timeout).
 
-% this clause is to link with caller process of fun call_manager:originate
+% this clause is to link with caller process of fun call_sup:originate
 init([Pid, Host, Port, A=#agent{}]) ->
 	process_flag(trap_exit, true),
 	link(Pid),
@@ -103,13 +103,13 @@ handle_info(_Info, S=#state{}) ->
 	{noreply, S}.
 
 handle_call(calls, _From, S=#state{agent=#agent{number=Number}}) ->
-	Match = call_manager:agent_match(Number),
-	Re = call_manager:match_for(Match),
+	Match = call_sup:agent_match(Number),
+	Re = call_sup:match_for(Match),
 	{reply, Re, S};
 
 handle_call(wait_for_call, _From, S=#state{on_incoming=[UUID]}) -> {reply, [UUID], S#state{on_incoming=undefined}};
 handle_call(wait_for_call, From, S=#state{agent=#agent{number=Number}}) ->
-	case call_manager:match_for(call_manager:agent_match(Number)) of
+	case call_sup:match_for(call_sup:agent_match(Number)) of
 		[] -> {noreply, S#state{ wait_for_incoming=From, on_incoming=undefined }};
 		Re ->
 			lager:error("wtf:~p", [Re]),

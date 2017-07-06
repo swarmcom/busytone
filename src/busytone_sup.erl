@@ -17,7 +17,7 @@ init(_Args) ->
 	Host = cfg(reach_host),
 	Port = cfg(reach_port),
 	ChildSpecs = [
-		?CHILD(call_manager, []),
+		?CHILD(call_sup, []),
 		?CHILD(fswitch, [Fs]),
 		?CHILD(agent_sup, [Host, Port]),
 		?CHILD(test_sup, [])
