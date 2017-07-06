@@ -2,7 +2,7 @@
 -behaviour(gen_server).
 
 -export([
-	start_link/1, stop/1, pid/1, tuple/1, alive/1, link_process/2, wait_hangup/1, subscribe/1,
+	start_link/1, pid/1, tuple/1, alive/1, link_process/2, wait_hangup/1, subscribe/1,
 	vars/1, variables/1,
 	hangup/1, answer/1, park/1, break/1,
 	deflect/2, display/3, getvar/2, hold/1, hold/2, setvar/2, setvar/3, send_dtmf/2,
@@ -35,7 +35,6 @@ hangup(Id) -> gen_safe:cast(Id, fun pid/1, hangup).
 answer(Id) -> gen_safe:cast(Id, fun pid/1, answer).
 park(Id) -> gen_safe:cast(Id, fun pid/1, park).
 break(Id) -> gen_safe:cast(Id, fun pid/1, break).
-stop(Id) -> gen_safe:cast(Id, fun pid/1, stop).
 alive(Id) -> gen_safe:cast(Id, fun pid/1, alive).
 
 link_process(Id, Pid) -> gen_safe:cast(Id, fun pid/1, {link_process, Pid}).
@@ -68,7 +67,6 @@ init([UUID]) ->
 	{ok, #state{uuid = UUID}}.
 
 handle_cast(answer, S=#state{uuid=UUID}) -> fswitch:api("uuid_answer ~s", [UUID]), {noreply, S};
-handle_cast(hangup, S=#state{uuid=UUID}) -> fswitch:api("uuid_kill ~s", [UUID]), {noreply, S};
 handle_cast(park, S=#state{uuid=UUID}) -> fswitch:api("uuid_park ~s", [UUID]), {noreply, S};
 handle_cast(break, S=#state{uuid=UUID}) -> fswitch:api("uuid_break ~s", [UUID]), {noreply, S};
 handle_cast({link_process, Pid}, S=#state{}) ->
@@ -80,7 +78,7 @@ handle_cast(alive, S=#state{uuid=UUID}) ->
 handle_cast({command, Command, Args}, S=#state{uuid=UUID}) ->
 	fswitch:command(UUID, Command, Args),
 	{noreply, S};
-handle_cast(stop, S=#state{}) -> {stop, normal, S};
+handle_cast(hangup, S=#state{}) -> {stop, normal, S};
 
 handle_cast(_Msg, S=#state{}) ->
 	lager:error("unhandled cast:~p", [_Msg]),
