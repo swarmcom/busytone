@@ -72,7 +72,7 @@ api(Node, Cmd, Args) ->
 	{api, Node} ! {api, Cmd, Args},
 	receive
 		{ok, X} -> 
-			lager:debug("fs api success:~p", [X]),
+			% lager:debug("fs api success:~p", [X]),
 			{ok, X};
 		{error, X} ->
 			lager:notice("fs api error:~p", [X]),

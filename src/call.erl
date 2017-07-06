@@ -2,7 +2,7 @@
 -behaviour(gen_server).
 
 -export([
-	start_link/1, stop/1, pid/1, tuple/1, alive/1, link_process/2,
+	start_link/1, stop/1, pid/1, tuple/1, alive/1, link_process/2, wait_hangup/1,
 	vars/1, variables/1,
 	hangup/1, answer/1, park/1, break/1,
 	deflect/2, display/3, getvar/2, hold/1, hold/2, setvar/2, setvar/3, send_dtmf/2,
@@ -15,7 +15,8 @@
 	call_state,
 	uuid,
 	vars,
-	variables
+	variables,
+	wait_hangup = []
 }).
 
 start_link(UUID) ->
@@ -37,6 +38,7 @@ alive(Id) -> gen_safe:cast(Id, fun pid/1, alive).
 link_process(Id, Pid) -> gen_safe:cast(Id, fun pid/1, {link_process, Pid}).
 command(Id, Command, Args) -> gen_safe:cast(Id, fun pid/1, {command, Command, Args}).
 
+wait_hangup(Id) -> gen_safe:call(Id, fun pid/1, {wait_hangup}).
 deflect(Id, Target) -> gen_safe:call(Id, fun pid/1, {deflect, Target}).
 display(Id, Name, Number) -> gen_safe:call(Id, fun pid/1, {display, Name, Number}).
 getvar(Id, Name) -> gen_safe:call(Id, fun pid/1, {getvar, Name}).
@@ -122,14 +124,17 @@ handle_call({transfer, Target, Dialplan}, _From, S=#state{uuid=UUID}) -> {reply,
 handle_call({transfer, Target, Dialplan, Context}, _From, S=#state{uuid=UUID}) ->
 	{reply, fswitch:api("uuid_transfer ~s ~s ~s ~s", [UUID, Target, Dialplan, Context]), S};
 handle_call({record, Action, Path}, _From, S=#state{uuid=UUID}) -> {reply, fswitch:api("uuid_record ~s ~s ~s", [UUID, Action, Path]), S};
+% just wait process to die
+handle_call({wait_hangup}, From, S=#state{wait_hangup=WaitList}) -> {noreply, S#state{wait_hangup=[From|WaitList]}};
 
 handle_call(_Request, _From, S=#state{}) ->
 	lager:error("unhandled call:~p", [_Request]),
 	{reply, ok, S}.
 
-terminate(_Reason, _S=#state{uuid=UUID}) ->
+terminate(_Reason, _S=#state{uuid=UUID, wait_hangup=WaitList}) ->
 	lager:notice("terminate, uuid:~s reason:~p", [UUID, _Reason]),
 	fswitch:api("uuid_kill ~s", [UUID]),
+	[ gen_server:reply(Caller, ok) || Caller <- WaitList ],
 	ok.
 
 code_change(_OldVsn, S=#state{}, _Extra) -> {ok, S}.

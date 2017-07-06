@@ -110,8 +110,10 @@ handle_call(calls, _From, S=#state{agent=#agent{number=Number}}) ->
 handle_call(wait_for_call, _From, S=#state{on_incoming=[UUID]}) -> {reply, [UUID], S#state{on_incoming=undefined}};
 handle_call(wait_for_call, From, S=#state{agent=#agent{number=Number}}) ->
 	case call_manager:match_for(call_manager:agent_match(Number)) of
-		[] -> {noreply, S#state{ wait_for_incoming=From }};
-		Re -> {reply, Re, S}
+		[] -> {noreply, S#state{ wait_for_incoming=From, on_incoming=undefined }};
+		Re ->
+			lager:error("wtf:~p", [Re]),
+			{reply, Re, S#state{on_incoming=undefined}}
 	end;
 
 handle_call({on_incoming, UUID}, _From, S=#state{wait_for_incoming=undefined}) -> {reply, self(), S#state{on_incoming=[UUID]}};
