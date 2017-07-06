@@ -10,7 +10,7 @@
 start() -> gen_server:start(?MODULE, [], []).
 start_link() -> gen_server:start_link(?MODULE, [], []).
 
-run(Pid, Test) -> gen_server:call(Pid, {run, Test}, 10000).
+run(Pid, Test) -> gen_server:call(Pid, {run, Test}, infinity).
 stop(Pid) -> gen_server:stop(Pid).
 
 init([]) ->
