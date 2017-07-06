@@ -1,4 +1,4 @@
--module(test_simple_inqueue).
+-module(t_simple_inqueue).
 -export([main/0]).
 
 main() ->

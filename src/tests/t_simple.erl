@@ -1,4 +1,4 @@
--module(test_simple).
+-module(t_simple).
 -export([main/0]).
 
 main() ->

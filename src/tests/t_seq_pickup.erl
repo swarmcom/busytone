@@ -1,4 +1,4 @@
--module(test_seq_pickup).
+-module(t_seq_pickup).
 -export([main/0]).
 
 main() ->
