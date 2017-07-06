@@ -47,12 +47,12 @@ init([]) ->
 	{ok, #state{originate_map=#{}}}.
 
 handle_info({freeswitch_sendmsg, UUID}, #state{}=S) ->
-	lager:notice("incoming message, uuid:~s", [UUID]),
+	lager:info("incoming message, uuid:~s", [UUID]),
 	{ok, _Pid} = call:start_link(UUID),
 	{noreply, S};
 
 handle_info({get_pid, UUID, Ref, From}, #state{originate_map=M}=S) ->
-	lager:notice("call control request, uuid:~s", [UUID]),
+	lager:info("call control request, uuid:~s", [UUID]),
 	CallPid =
 		case call:pid(UUID) of
 			undefined -> {ok, Pid} = call:start_link(UUID), Pid;
@@ -98,7 +98,7 @@ handle_call(_Request, _From, S=#state{}) ->
 	{reply, ok, S}.
 
 terminate(_Reason, _S) ->
-	lager:notice("terminate, reason:~p", [_Reason]),
+	lager:info("terminate, reason:~p", [_Reason]),
 	ok.
 
 code_change(_OldVsn, S=#state{}, _Extra) -> {ok, S}.

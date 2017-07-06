@@ -14,7 +14,7 @@ run(Pid, Test) -> gen_server:call(Pid, {run, Test}, infinity).
 stop(Pid) -> gen_server:stop(Pid).
 
 init([]) ->
-	lager:notice("start", []),
+	lager:info("start", []),
 	{ok, #state{}}.
 
 handle_cast(stop, S) -> {stop, normal, S};
@@ -27,5 +27,5 @@ handle_call({run, Test}, _From, S=#state{}) ->
 	{reply, ok, S};
 
 handle_call(_Request, _From, S=#state{}) -> lager:error("unhandled call:~p", [_Request]), {reply, ok, S}.
-terminate(_Reason, _S) -> lager:notice("terminate, reason:~p", [_Reason]), ok.
+terminate(_Reason, _S) -> lager:info("terminate, reason:~p", [_Reason]), ok.
 code_change(_OldVsn, S=#state{}, _Extra) -> {ok, S}.

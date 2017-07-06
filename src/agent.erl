@@ -52,7 +52,7 @@ init([Pid, Host, Port, A=#agent{}]) ->
 	{ok, State} = init([Host, Port, A]),
 	{ok, State#state{caller_pid=Pid}};
 init([Host, Port, A=#agent{login=Login}]) ->
-	lager:notice("start agent, login:~p", [Login]),
+	lager:info("start agent, login:~p", [Login]),
 	{ok, Reach} = gun:open(Host, Port),
 	monitor(process, Reach),
 	gproc:reg({n, l, {?MODULE, Login}}, A),
@@ -92,7 +92,7 @@ handle_info(auth, S=#state{ reach = Pid, agent = #agent{login=Login, password=Pa
 	{noreply, S#state{http_request=auth}};
 
 handle_info({'DOWN', _Ref, process, Pid, _Reason}, S=#state{ reach=Pid }) ->
-	lager:notice("reach connection is dead, pid:~p reason:~p", [Pid, _Reason]),
+	lager:info("reach connection is dead, pid:~p reason:~p", [Pid, _Reason]),
 	{stop, normal, S};
 
 handle_info({'EXIT', Pid, _}, S=#state{caller_pid=Pid}) ->
@@ -138,7 +138,7 @@ handle_cast(stop, S=#state{}) ->
 
 handle_cast(_Msg, S=#state{}) -> {noreply, S}.
 terminate(_Reason, _S=#state{reach=Pid}) ->
-	lager:notice("terminate, reason:~p", [_Reason]),
+	lager:info("terminate, reason:~p", [_Reason]),
 	gun:close(Pid),
 	ok.
 code_change(_OldVsn, S=#state{}, _Extra) -> {ok, S}.

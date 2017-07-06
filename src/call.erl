@@ -2,7 +2,7 @@
 -behaviour(gen_server).
 
 -export([
-	start_link/1, stop/1, pid/1, tuple/1, alive/1, link_process/2, wait_hangup/1,
+	start_link/1, stop/1, pid/1, tuple/1, alive/1, link_process/2, wait_hangup/1, subscribe/1,
 	vars/1, variables/1,
 	hangup/1, answer/1, park/1, break/1,
 	deflect/2, display/3, getvar/2, hold/1, hold/2, setvar/2, setvar/3, send_dtmf/2,
@@ -22,9 +22,11 @@
 start_link(UUID) ->
 	gen_server:start_link(?MODULE, [UUID], []).
 
+% gproc api
 tuple(UUID) -> {?MODULE, UUID}.
 pid({?MODULE, UUID}) -> pid(UUID);
 pid(UUID) -> gproc:whereis_name({n, l, {?MODULE, UUID}}).
+subscribe(UUID) -> gproc:reg({p, l, {?MODULE, UUID}}, subscribe).
 
 vars(Id) -> gen_safe:call(Id, fun pid/1, vars).
 variables(Id) -> gen_safe:call(Id, fun pid/1, variables).
@@ -35,6 +37,7 @@ park(Id) -> gen_safe:cast(Id, fun pid/1, park).
 break(Id) -> gen_safe:cast(Id, fun pid/1, break).
 stop(Id) -> gen_safe:cast(Id, fun pid/1, stop).
 alive(Id) -> gen_safe:cast(Id, fun pid/1, alive).
+
 link_process(Id, Pid) -> gen_safe:cast(Id, fun pid/1, {link_process, Pid}).
 command(Id, Command, Args) -> gen_safe:cast(Id, fun pid/1, {command, Command, Args}).
 
@@ -59,7 +62,7 @@ record(Id, Action=unmask, Path) -> gen_safe:call(Id, fun pid/1, {record, Action,
 sync_state(Pid) when is_pid(Pid) -> Pid ! sync_state.
 
 init([UUID]) ->
-	lager:notice("start, uuid:~s", [UUID]),
+	lager:info("start, uuid:~s", [UUID]),
 	gproc:reg({n, l, {?MODULE, UUID}}),
 	sync_state(self()),
 	{ok, #state{uuid = UUID}}.
@@ -101,7 +104,7 @@ handle_info(sync_state, S=#state{uuid=UUID}) ->
 	handle_event(Vars, Variables, S);
 
 handle_info({'DOWN', _Ref, process, _Pid, _Reason}, S=#state{}) ->
-	lager:notice("owner is dead, pid:~p reason:~p", [_Pid, _Reason]),
+	lager:info("owner is dead, pid:~p reason:~p", [_Pid, _Reason]),
 	{stop, normal, S};
 
 handle_info(_Info, S=#state{}) ->
@@ -132,24 +135,24 @@ handle_call(_Request, _From, S=#state{}) ->
 	{reply, ok, S}.
 
 terminate(_Reason, _S=#state{uuid=UUID, wait_hangup=WaitList}) ->
-	lager:notice("terminate, uuid:~s reason:~p", [UUID, _Reason]),
+	lager:info("terminate, uuid:~s reason:~p", [UUID, _Reason]),
 	fswitch:api("uuid_kill ~s", [UUID]),
 	[ gen_server:reply(Caller, ok) || Caller <- WaitList ],
 	ok.
 
 code_change(_OldVsn, S=#state{}, _Extra) -> {ok, S}.
 
-handle_event(Vars = #{ "Event-Name" := Ev }, _Variables, S=#state{uuid=UUID}) when _Variables =:= #{} ->
-	lager:debug("ev:~p", [Ev]),
-	gproc:set_value({n, l, {?MODULE, UUID}}, Vars),
-	{noreply, set_call_state(S#state{vars=Vars})};
 handle_event(Vars = #{ "Event-Name" := Ev }, Variables, S=#state{uuid=UUID}) ->
-	lager:debug("ev with vars:~p", [Ev]),
+	lager:debug("ev:~p", [Ev]),
+	gproc:send({p, l, {call, UUID}}, Ev),
 	gproc:set_value({n, l, {?MODULE, UUID}}, Vars),
-	{noreply, set_call_state(S#state{vars=Vars, variables=Variables})}.
+	{noreply, set_call_state(maybe_set_vairables(Variables, S#state{vars=Vars}))}.
 
 set_call_state(S=#state{ vars = #{ "Channel-Call-State" := State } }) -> S#state{ call_state = State };
 set_call_state(S) -> S.
+
+maybe_set_vairables(Variables, S) when Variables =:= #{} -> S;
+maybe_set_vairables(Variables, S) -> S#state{variables=Variables}.
 
 bind_agent(UUID, #{ "Caller-Destination-Number" := Number, "Caller-Logical-Direction" := "inbound" }) ->
 	[ erlang:monitor(process, agent:on_incoming(Agent, UUID)) || Agent <- agent_sup:by_number(Number) ];
