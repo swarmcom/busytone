@@ -1,6 +1,8 @@
 -module(t_transfer_to_agent).
 -export([main/0]).
 
+% see: https://ezuce.testrail.com/index.php?/cases/view/3510
+
 main() ->
 	Agent1 = test_lib:login_available("agent1", "1234", "agent1"),
 	{ok, InQueueCall} = call_sup:originate("sofia/gateway/reach/9999"),
@@ -18,4 +20,3 @@ main() ->
 	[UUID2] = agent:wait_for_call(Agent2),
 	ok = call:answer(UUID2),
 	test_lib:ensureTalking(InQueueCall, UUID2).
-
