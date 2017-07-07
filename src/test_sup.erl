@@ -17,8 +17,8 @@ set_loglevel(Level) ->
 start_link() ->
 	gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
-run(Test) -> gen_server:call(?MODULE, {run, Test}).
-run() -> gen_server:call(?MODULE, {run}).
+run(Test) -> gen_server:call(?MODULE, {run, Test}, infinity).
+run() -> gen_server:call(?MODULE, {run}, infinity).
 
 init([]) ->
 	lager:notice("start", []),

@@ -1,4 +1,4 @@
--module(t_simple).
+-module(t_agent_noanswer).
 -export([main/0]).
 
 main() ->
@@ -9,6 +9,4 @@ main() ->
 	{ok, InQueueCall} = call_sup:originate("sofia/gateway/reach/9999"),
 	agent:wait_ws(Agent, #{ <<"command">> => <<"setchannel">>, <<"state">> => <<"ringing">> }),
 	[UUID] = agent:wait_for_call(Agent),
-	ok = call:answer(UUID),
-	agent:wait_ws(Agent, #{ <<"command">> => <<"mediaload">>, <<"channelid">> => <<"ch1">> }),
-	test_lib:ensureTalking(InQueueCall, UUID).
+	agent:wait_ws(Agent, #{ <<"command">> => <<"mediaload">>, <<"channelid">> => <<"ch1">> }, 15000).

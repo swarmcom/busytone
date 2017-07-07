@@ -5,7 +5,7 @@ pickup(Agent, Ch, InCall) ->
 	[UUID] = agent:wait_for_call(Agent),
 	ok = call:answer(UUID),
 	agent:wait_ws(Agent, #{ <<"command">> => <<"mediaload">>, <<"channelid">> => Ch }),
-	call_sup:ensureTalking(UUID, InCall),
+	test_lib:ensureTalking(UUID, InCall),
 	call:hangup(UUID),
 	call:wait_hangup(UUID).
 

@@ -74,6 +74,7 @@ handle_info({gun_up, _Pid, http}, S) ->
 	self() ! auth,
 	{noreply, S};
 handle_info({gun_down, _Pid, http, closed, _, _}, S) -> {noreply, S};
+handle_info({gun_down, _Pid, ws, closed, _, _}, S) -> {stop, normal, S};
 
 handle_info({gun_response, _Pid, _StreamRef, nofin, 200, Headers}, S=#state{http_request=auth}) ->
 	handle_cookie(to_map(Headers), S);
