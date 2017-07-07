@@ -2,6 +2,7 @@ BusyTone
 ========
 
 Reach functional tests and framework. This is work in progress, see [TODO](TODO.md).
+The ultimate goal is to convert all [manual](https://ezuce.testrail.com/index.php?/suites/view/156&group_by=cases:section_id&group_order=asc&group_id=1664) tests to automatic ones, probably linking them together.
 
 Notes
 =====
