@@ -38,7 +38,7 @@ by_number(Number) ->
 	Q = qlc:q([ Login || {_, _Pid, #agent{login=Login, number=N}} <- gproc:table({l, n}), N =:= Number ]),
 	qlc:e(Q).
 
-rpc(Id, Cmd, Args) -> gen_safe:cast(Id, fun pid/1, {rpc, Cmd, Args}).
+rpc(Id, Cmd, Args) -> gen_safe:call(Id, fun pid/1, {rpc, Cmd, Args}).
 calls(Id) -> gen_safe:call(Id, fun pid/1, calls).
 wait_for_call(Id) -> gen_safe:call(Id, fun pid/1, wait_for_call).
 on_incoming(Id, UUID) -> gen_safe:call(Id, fun pid/1, {on_incoming, UUID}).
@@ -139,12 +139,13 @@ handle_call({wait_ws, Match}, From, S=#state{ ws_log = WsLog }) ->
 handle_call(stop, _, S=#state{}) ->
 	{stop, normal, ok, S};
 
+handle_call({rpc, Cmd, Args}, _, S=#state{ reach = Pid, ws_msg_id = Id }) ->
+	gun:ws_send(Pid, {text, jiffy:encode(#{ id => Id, method => Cmd, params => Args, jsonrpc => <<"2.0">> })}),
+	{reply, Id, S#state{ws_msg_id = Id + 1}};
+
 handle_call(_Msg, _From, S=#state{}) ->
 	{reply, ok, S}.
 
-handle_cast({rpc, Cmd, Args}, S=#state{ reach = Pid, ws_msg_id = Id }) ->
-	gun:ws_send(Pid, {text, jiffy:encode(#{ id => Id, method => Cmd, params => Args, jsonrpc => <<"2.0">> })}),
-	{noreply, S#state{ws_msg_id = Id + 1}};
 handle_cast(_Msg, S=#state{}) -> {noreply, S}.
 
 terminate(_Reason, _S=#state{reach=Pid}) ->

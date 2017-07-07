@@ -3,9 +3,7 @@ BusyTone TODO
 
 ## On
 
-1. Create a transfer to agent test
 2. In order to conduct tests there should be a way to alter (add/remove) agent/queues/skills properties dynamically
-3. Provide a library for test functions
 
 ## Other
 
@@ -16,6 +14,8 @@ BusyTone TODO
 Done
 ====
 
+1. Create a transfer to agent test
+3. Provide a library for test functions
 1. Allow to execute tests in a sequence, but each in it's own process (not to spawn)
 3. Ensure talking by issuing/detecting DTMF
 1. Notification system: notify agent on call, notify call on agent death, etc. grpoc?
