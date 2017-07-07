@@ -10,4 +10,4 @@ main() ->
 	agent:wait_ws(Agent, #{ <<"command">> => <<"setchannel">>, <<"state">> => <<"ringing">> }),
 	[UUID] = agent:wait_for_call(Agent),
 	ok = call:answer(UUID),
-	agent:wait_ws(Agent, #{ <<"command">> => <<"mediaevent">>,<<"event">> => <<"caller_offhold">>,<<"media">> => <<"voice">> }).
+	agent:wait_ws(Agent, #{ <<"command">> => <<"mediaload">>, <<"channelid">> => <<"ch1">> }).

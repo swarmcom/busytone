@@ -20,7 +20,7 @@
 	caller_pid,
 	ws_log,
 	wait_for_incoming,
-	on_incoming
+	incoming_call
 }).
 
 -define(STEP, 1000).
@@ -32,7 +32,7 @@ rpc(Id, Cmd, Args) -> gen_safe:cast(Id, fun pid/1, {rpc, Cmd, Args}).
 calls(Id) -> gen_safe:call(Id, fun pid/1, calls).
 wait_for_call(Id) -> gen_safe:call(Id, fun pid/1, wait_for_call).
 on_incoming(Id, UUID) -> gen_safe:call(Id, fun pid/1, {on_incoming, UUID}).
-stop(Id) -> gen_safe:cast(Id, fun pid/1, stop).
+stop(Id) -> gen_safe:call(Id, fun pid/1, stop).
 available(Id) -> rpc(Id, go_available, []).
 release(Id) -> rpc(Id, go_released, []).
 
@@ -98,9 +98,13 @@ handle_info({'DOWN', _Ref, process, Pid, _Reason}, S=#state{ reach=Pid }) ->
 
 handle_info({call, UUID, #{ "Caller-Destination-Number" := Number, "Caller-Logical-Direction" := "inbound" }}, S=#state{ agent=#agent{ number = Number }}) ->
 	call:link_process(UUID, self()),
+	call:subscribe(uuid, UUID),
 	handle_incoming_call(UUID, S);
-handle_info({call, _, _}, S=#state{}) ->
-	{noreply, S};
+handle_info({call, _, _}, S=#state{}) -> {noreply, S};
+
+handle_info({call, "CHANNEL_HANGUP"}, S=#state{}) ->
+	{noreply, S#state{incoming_call=undefined}};
+handle_info({call, _}, S=#state{}) -> {noreply, S};
 
 handle_info({'EXIT', Pid, _}, S=#state{caller_pid=Pid}) ->
 	{stop, normal, S};
@@ -114,20 +118,17 @@ handle_call(calls, _From, S=#state{agent=#agent{number=Number}}) ->
 	Re = call_sup:match_for(Match),
 	{reply, Re, S};
 
-handle_call(wait_for_call, _From, S=#state{on_incoming=[UUID]}) -> {reply, [UUID], S#state{on_incoming=undefined}};
-handle_call(wait_for_call, From, S=#state{agent=#agent{number=Number}}) ->
-	case call_sup:match_for(call_sup:agent_match(Number)) of
-		[] -> {noreply, S#state{ wait_for_incoming=From, on_incoming=undefined }};
-		Re ->
-			lager:error("wtf:~p", [Re]),
-			{reply, Re, S#state{on_incoming=undefined}}
-	end;
+handle_call(wait_for_call, From, S=#state{incoming_call=undefined}) ->
+	{noreply, S#state{ wait_for_incoming=From }};
+handle_call(wait_for_call, _From, S=#state{incoming_call=UUID}) -> {reply, [UUID], S#state{incoming_call=undefined}};
 
 handle_call({wait_ws, Match}, From, S=#state{ ws_log = WsLog }) ->
 	case event_log:wait(WsLog, Match, From) of
 		no_match -> {noreply, S};
-		{match, _Ts, _} = Re -> {reply, Re, S}
+		{match, _Ts, _Msg} = Re -> {reply, Re, S}
 	end;
+handle_call(stop, _, S=#state{}) ->
+	{stop, normal, ok, S};
 
 handle_call(_Msg, _From, S=#state{}) ->
 	{reply, ok, S}.
@@ -135,10 +136,8 @@ handle_call(_Msg, _From, S=#state{}) ->
 handle_cast({rpc, Cmd, Args}, S=#state{ reach = Pid, ws_msg_id = Id }) ->
 	gun:ws_send(Pid, {text, jiffy:encode(#{ id => Id, method => Cmd, params => Args, jsonrpc => <<"2.0">> })}),
 	{noreply, S#state{ws_msg_id = Id + 1}};
-handle_cast(stop, S=#state{}) ->
-	{stop, normal, S};
-
 handle_cast(_Msg, S=#state{}) -> {noreply, S}.
+
 terminate(_Reason, _S=#state{reach=Pid}) ->
 	lager:info("terminate, reason:~p", [_Reason]),
 	gun:close(Pid),
@@ -161,10 +160,13 @@ handle_ws_text(Msg, S=#state{ ws_log = WsLog }) ->
 	end,
 	{noreply, S}.
 
-handle_incoming_call(UUID, S=#state{wait_for_incoming=undefined}) -> {noreply, S#state{on_incoming=[UUID]}};
-handle_incoming_call(UUID, S=#state{wait_for_incoming=From}) ->
+handle_incoming_call(UUID, S=#state{}) ->
+	{noreply, maybe_notify_waiter(S#state{incoming_call=UUID})}.
+
+maybe_notify_waiter(S=#state{wait_for_incoming=undefined}) -> S;
+maybe_notify_waiter(S=#state{wait_for_incoming=From, incoming_call=UUID}) ->
 	gen_server:reply(From, [UUID]),
-	{noreply, S#state{on_incoming=undefined}}.
+	S.
 
 to_map(H) ->
 	lists:foldl(fun({K,V}, M) -> M#{ K => V } end, #{}, H).

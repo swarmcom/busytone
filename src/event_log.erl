@@ -28,7 +28,7 @@ handle_call({add, Msg}, _, S=#state{ wait = {Match, Caller} }) ->
 
 handle_call({wait, Match, Caller}, _, S=#state{ log = Log }) ->
 	case lookback(Match, Log) of
-		{found, _, _}=Msg -> {reply, Msg, S};
+		{match, _, _}=Msg -> {reply, Msg, S};
 		_ -> {reply, no_match, S#state{ wait = {Match,Caller} } }
 	end;
 
@@ -39,9 +39,9 @@ handle_info(_Info, S=#state{}) -> {noreply, S}.
 terminate(_Reason, _S) -> ok.
 code_change(_OldVsn, S=#state{}, _Extra) -> {ok, S}.
 
-lookback(Match, Log) -> lookback(5, Match, Log).
-lookback(0, _, _) -> not_found;
-lookback(_, _, []) -> not_found;
+lookback(Match, Log) -> lookback(2, Match, Log).
+lookback(0, _, _) -> no_match;
+lookback(_, _, []) -> no_match;
 lookback(Depth, Match, [{Ts,Msg} | Log]) ->
 	case util:match_maps(Match, Msg) of
 		true -> {match, Ts, Msg};
