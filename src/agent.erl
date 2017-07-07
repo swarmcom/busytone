@@ -1,12 +1,14 @@
 -module(agent).
 -behaviour(gen_server).
 -include_lib("busytone/include/busytone.hrl").
+-include_lib("stdlib/include/qlc.hrl").
 
 -export([
 	start_link/3, start/3, start/4, pid/1,
 	rpc/3, available/1, release/1, stop/1,
 	calls/1, wait_for_call/1, on_incoming/2,
-	wait_ws/3, wait_ws/2
+	wait_ws/3, wait_ws/2,
+	online/0, by_number/1
 ]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
@@ -27,6 +29,14 @@
 
 pid(Login) when is_binary(Login) -> pid(erlang:binary_to_list(Login));
 pid(Login) -> gproc:whereis_name({n, l, {?MODULE, Login}}).
+
+online() ->
+	Q = qlc:q([ A || {_, _Pid, A=#agent{}} <- gproc:table({l, n}) ]),
+	qlc:e(Q).
+
+by_number(Number) ->
+	Q = qlc:q([ Login || {_, _Pid, #agent{login=Login, number=N}} <- gproc:table({l, n}), N =:= Number ]),
+	qlc:e(Q).
 
 rpc(Id, Cmd, Args) -> gen_safe:cast(Id, fun pid/1, {rpc, Cmd, Args}).
 calls(Id) -> gen_safe:call(Id, fun pid/1, calls).
@@ -113,10 +123,8 @@ handle_info(_Info, S=#state{}) ->
 	lager:error("unhandled info:~p", [_Info]),
 	{noreply, S}.
 
-handle_call(calls, _From, S=#state{agent=#agent{number=Number}}) ->
-	Match = call_sup:agent_match(Number),
-	Re = call_sup:match_for(Match),
-	{reply, Re, S};
+handle_call(calls, _From, S=#state{incoming_call=undefined}) -> {reply, [], S};
+handle_call(calls, _From, S=#state{incoming_call=UUID}) -> {reply, [UUID], S};
 
 handle_call(wait_for_call, From, S=#state{incoming_call=undefined}) ->
 	{noreply, S#state{ wait_for_incoming=From }};

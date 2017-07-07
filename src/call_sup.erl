@@ -1,12 +1,11 @@
 -module(call_sup).
 -behaviour(gen_server).
--include_lib("stdlib/include/qlc.hrl").
 
 % accept and manage incoming agent callls
 -define(ORIGINATE_TIMEOUT, 5000).
 
 -export([
-	start_link/0, originate/3, originate/2, originate/1, online/0, match_for/1, agent_match/1,
+	start_link/0, originate/3, originate/2, originate/1,
 	ensureTalking/2, ensureTalking/3
 ]).
 
@@ -15,26 +14,6 @@
 -record(state, {
 	originate_map
 }).
-
-online() ->
-	Q = qlc:q([ UUID || {{n,l,{call,UUID}}, _Pid, _} <- gproc:table({l, n}) ]),
-	qlc:e(Q).
-
-match_for(Map) when is_map(Map) ->
-	Q = qlc:q([ UUID || {{n,l,{call,UUID}}, _Pid, M} <- gproc:table({l, n}), is_in(Map, M) ]),
-	qlc:e(Q);
-match_for(Key) ->
-	Q = qlc:q([ {UUID, maps:get(Key, M)} || {{n,l,{call,UUID}}, _Pid, M=#{}} <- gproc:table({l, n}), maps:is_key(Key, M) ]),
-	qlc:e(Q).
-
-agent_match(Number) -> #{ "Caller-Destination-Number" => Number, "Caller-Logical-Direction" => "inbound" }.
-
-is_in(_, undefined) -> false;
-is_in(Inner, Outer) ->
-	case erlang:length(maps:to_list(Inner) -- maps:to_list(Outer)) of
-		0 -> true;
-		_ -> false
-	end.
 
 start_link() ->
 	gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).

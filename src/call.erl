@@ -1,5 +1,6 @@
 -module(call).
 -behaviour(gen_server).
+-include_lib("stdlib/include/qlc.hrl").
 
 -export([
 	start_link/1, pid/1, tuple/1, alive/1, link_process/2, wait_hangup/1, subscribe/2, unsubscribe/2,
@@ -8,7 +9,8 @@
 	deflect/2, display/3, getvar/2, hold/1, hold/2, setvar/2, setvar/3, send_dtmf/2, broadcast/2, displace/3,
 	execute/3, tone_detect/4, detect_tone/2, stop_detect_tone/1,
 	transfer/2, transfer/3, transfer/4, record/3, command/3,
-	wait_event/2, wait_event/3
+	wait_event/2, wait_event/3,
+	active/0, match_for/1
 ]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
@@ -21,6 +23,17 @@
 	wait_hangup = [],
 	event_log
 }).
+
+active() ->
+	Q = qlc:q([ UUID || {{n,l,{?MODULE,UUID}}, _Pid, _} <- gproc:table({l, n}) ]),
+	qlc:e(Q).
+
+match_for(Map) when is_map(Map) ->
+	Q = qlc:q([ UUID || {{n,l,{?MODULE,UUID}}, _Pid, M} <- gproc:table({l, n}), util:match_maps(Map, M) ]),
+	qlc:e(Q);
+match_for(Key) ->
+	Q = qlc:q([ {UUID, maps:get(Key, M)} || {{n,l,{?MODULE,UUID}}, _Pid, M=#{}} <- gproc:table({l, n}), maps:is_key(Key, M) ]),
+	qlc:e(Q).
 
 start_link(UUID) ->
 	gen_server:start_link(?MODULE, [UUID], []).
