@@ -3,9 +3,6 @@ BusyTone TODO
 
 ## On
 
-2. Allow to execute tests in a sequence, but each in it's own process (not to spawn)
-3. Ensure talking by issuing/detecting DTMF
-
 ## Other
 
 2. Use sys.config param to place calls to Reach by numbers only
@@ -14,6 +11,8 @@ BusyTone TODO
 Done
 ====
 
+2. Allow to execute tests in a sequence, but each in it's own process (not to spawn)
+3. Ensure talking by issuing/detecting DTMF
 1. Notification system: notify agent on call, notify call on agent death, etc. grpoc?
 2. On agent's death stop all agent incoming calls as well
 2. Speedup event waiting by matching on-event

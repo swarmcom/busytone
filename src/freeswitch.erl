@@ -75,7 +75,7 @@ api(Node, Cmd, Args) ->
 			% lager:debug("fs api success:~p", [X]),
 			{ok, X};
 		{error, X} ->
-			lager:notice("fs api error:~p", [X]),
+			lager:info("fs api error:~p", [X]),
 			{error, X}
 	after ?TIMEOUT ->
 		lager:error("fs api timeout"),
@@ -112,7 +112,7 @@ bgapi_handler(ParentPid, Node, Cmd, Args) ->
 	{bgapi, Node} ! {bgapi, Cmd, Args},
 	receive
 		{error, Reason} ->
-			lager:notice("fs bgapi error:~p", [Reason]),
+			lager:info("fs bgapi error:~p", [Reason]),
 			ParentPid ! {api, {error, Reason}};
 		{ok, JobID} ->
 			lager:debug("fs bgapi success, job id:~p", [JobID]),
@@ -122,7 +122,7 @@ bgapi_handler(ParentPid, Node, Cmd, Args) ->
 					lager:debug("fs bgapi job success, job id:~p reply:~p", [JobID, Reply]),
 					ParentPid ! {bgok, JobID, Reply};
 				{bgerror, JobID, Reply} ->
-					lager:notice("fs bgapi job error, job id:~p reply:~p", [JobID, Reply]),
+					lager:info("fs bgapi job error, job id:~p reply:~p", [JobID, Reply]),
 					ParentPid ! {bgerror, JobID, Reply}
 			end
 		after
@@ -260,7 +260,7 @@ sendmsg(Node, UUID, Headers) ->
 		ok ->
 			ok;
 		{error, Reason} ->
-			lager:notice("fs sendmsg error:~p", [Reason]),
+			lager:info("fs sendmsg error:~p", [Reason]),
 			{error, Reason}
 	after ?TIMEOUT ->
 			timeout
