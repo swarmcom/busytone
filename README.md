@@ -15,6 +15,14 @@ as incoming calls gets in, therefore no additional tricks required to get channe
 `call:match_for/2` matches online calls for [Channel Variable](https://freeswitch.org/confluence/display/FREESWITCH/Channel+Variables) set.
 `call:variables/1` collects [variables](https://freeswitch.org/confluence/display/FREESWITCH/Variables).
 
+You can alter test suite verbosiness with `test_sup:debug()`, `test_sup:info()` and `test_sup:notice()` commands.
+
+Test cases
+==========
+
+Test cases should be put to [src/tests](src/tests) folder, and named like `t_${Test Name}.erl` (suite runner will match module names with this pattern).
+If test case file is altered it gets dynamically compiled and reloaded.
+
 Example session
 ===============
 
