@@ -59,6 +59,7 @@ code_change(_OldVsn, S=#state{}, _Extra) -> {ok, S}.
 
 run_test(Test) ->
 	{ok, Pid} = test_run:start_link(),
+	lager:notice("start test:~p", [Test]),
 	Re = test_run:run(Pid, Test),
 	lager:notice("test:~p result:~p", [Test, Re]),
 	test_run:stop(Pid).
