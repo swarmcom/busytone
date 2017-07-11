@@ -1,8 +1,17 @@
 -module(test_lib).
 -export([
-	login_available/3,
+	login/3, available/1, login_available/3,
 	ensureTalking/2, ensureTalking/3
 ]).
+
+login(Login, Password, Number) ->
+	Agent = agent_sup:agent(Login, Password, Number),
+	agent:wait_ws(Agent, #{ <<"username">> => Agent }),
+	Agent.
+
+available(Agent) ->
+	agent:available(Agent),
+	agent:wait_ws(Agent, #{ <<"command">> => <<"arelease">>, <<"releaseData">> => false }).
 
 login_available(Login, Password, Number) ->
 	Agent = agent_sup:agent(Login, Password, Number),

@@ -15,6 +15,8 @@ stop(Pid) -> gen_server:stop(Pid).
 
 init([]) ->
 	lager:info("start", []),
+	{ok, Pid} = admin_user:start_link(),
+	erlang:link(Pid),
 	{ok, #state{}}.
 
 handle_cast(stop, S) -> {stop, normal, S};

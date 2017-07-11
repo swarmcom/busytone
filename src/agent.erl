@@ -5,10 +5,11 @@
 
 -export([
 	start_link/3, start/3, start/4, pid/1,
-	rpc/3, available/1, release/1, stop/1,
+	rpc/3, rpc_call/3, available/1, release/1, stop/1,
 	calls/1, wait_for_call/1, on_incoming/2,
 	wait_ws/3, wait_ws/2,
-	online/0, by_number/1
+	online/0, by_number/1,
+	auto_delete/2
 ]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
@@ -22,13 +23,18 @@
 	caller_pid,
 	ws_log,
 	wait_for_incoming,
-	incoming_call
+	incoming_call,
+	auto_delete = false
 }).
 
 -define(STEP, 1000).
 
 pid(Login) when is_binary(Login) -> pid(erlang:binary_to_list(Login));
 pid(Login) -> gproc:whereis_name({n, l, {?MODULE, Login}}).
+
+rpc_call(Agent, Cmd, Args) ->
+	MsgId = rpc(Agent, Cmd, Args),
+	agent:wait_ws(Agent, #{ <<"id">> => MsgId }).
 
 online() ->
 	Q = qlc:q([ A || {_, _Pid, A=#agent{}} <- gproc:table({l, n}) ]),
@@ -45,6 +51,7 @@ on_incoming(Id, UUID) -> gen_safe:call(Id, fun pid/1, {on_incoming, UUID}).
 stop(Id) -> gen_safe:call(Id, fun pid/1, stop).
 available(Id) -> rpc(Id, go_available, []).
 release(Id) -> rpc(Id, go_released, []).
+auto_delete(Id, Flag) -> gen_safe:call(Id, fun pid/1, {auto_delete, Flag}).
 
 start_link(Host, Port, A=#agent{}) -> gen_server:start_link(?MODULE, [Host, Port, A], []).
 start(Host, Port, A=#agent{}) -> gen_server:start(?MODULE, [Host, Port, A], []).
@@ -140,16 +147,26 @@ handle_call(stop, _, S=#state{}) ->
 	{stop, normal, ok, S};
 
 handle_call({rpc, Cmd, Args}, _, S=#state{ reach = Pid, ws_msg_id = Id }) ->
-	gun:ws_send(Pid, {text, jiffy:encode(#{ id => Id, method => Cmd, params => Args, jsonrpc => <<"2.0">> })}),
+	Text = jiffy:encode(#{ id => Id, method => Cmd, params => Args, jsonrpc => <<"2.0">> }),
+	lager:debug("ws out:~p", [Text]),
+	gun:ws_send(Pid, {text, Text}),
 	{reply, Id, S#state{ws_msg_id = Id + 1}};
+
+handle_call({auto_delete, Flag}, _, S=#state{}) ->
+	{reply, Flag, S#state{auto_delete=Flag}};
 
 handle_call(_Msg, _From, S=#state{}) ->
 	{reply, ok, S}.
 
 handle_cast(_Msg, S=#state{}) -> {noreply, S}.
 
-terminate(_Reason, _S=#state{reach=Pid}) ->
-	lager:info("terminate, reason:~p", [_Reason]),
+terminate(_Reason, S=#state{reach=Pid, auto_delete=true, agent=#agent{login=Login}}) ->
+	lager:info("terminate with auto_delete, login:~p reason:~p", [Login, _Reason]),
+	handle_call({rpc, <<"ouc_rpc_adm.delete_agent">>, [to_bin(Login)]}, erlang:make_ref(), S),
+	gun:close(Pid),
+	ok;
+terminate(_Reason, _S=#state{reach=Pid, agent=#agent{login=Login}}) ->
+	lager:info("terminate, login:~p reason:~p", [Login, _Reason]),
 	gun:close(Pid),
 	ok.
 code_change(_OldVsn, S=#state{}, _Extra) -> {ok, S}.
