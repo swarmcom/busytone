@@ -31,13 +31,13 @@ handle_info(_Info, S=#state{}) ->
 	{noreply, S}.
 
 handle_call({new_agent, Map}, _, S=#state{user=Admin}) ->
-	{match, _, #{ <<"result">> := [Login, Password, Number] }} = agent:rpc_call(Admin, <<"ouc_rpc_adm.create_test_agent">>, [Map]),
+	[Login, Password, Number] = agent:rpc_call(Admin, <<"ouc_rpc_adm.create_test_agent">>, [Map]),
 	Agent = test_lib:login(b2l(Login), b2l(Password), b2l(Number)),
 	agent:auto_delete(Agent, true),
 	{reply, Agent, S};
 
 handle_call({new_profile, M}, _, S=#state{user=Admin, profiles=Profiles}) ->
-	{match, _, #{ <<"result">> := Name }} = agent:rpc_call(Admin, <<"ouc_rpc_adm.create_test_profile">>, [M]),
+	Name = agent:rpc_call(Admin, <<"ouc_rpc_adm.create_test_profile">>, [M]),
 	{reply, Name, S#state{profiles=[Name|Profiles]}};
 
 handle_call(_Request, _From, S=#state{}) ->
@@ -52,4 +52,4 @@ code_change(_OldVsn, S=#state{}, _Extra) -> {ok, S}.
 b2l(B) -> erlang:binary_to_list(B).
 
 delete_profile(Admin, Profile) ->
-	{match, _, #{ <<"result">> := <<"ok">> }} = agent:rpc_call(Admin, <<"ouc_rpc_adm.delete_profile">>, [Profile]).
+	<<"ok">> = agent:rpc_call(Admin, <<"ouc_rpc_adm.delete_profile">>, [Profile]).

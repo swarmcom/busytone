@@ -34,7 +34,8 @@ pid(Login) -> gproc:whereis_name({n, l, {?MODULE, Login}}).
 
 rpc_call(Agent, Cmd, Args) ->
 	MsgId = rpc(Agent, Cmd, Args),
-	agent:wait_ws(Agent, #{ <<"id">> => MsgId }).
+	{match, _, #{ <<"result">> := Re } } = agent:wait_ws(Agent, #{ <<"id">> => MsgId }),
+	Re.
 
 online() ->
 	Q = qlc:q([ A || {_, _Pid, A=#agent{}} <- gproc:table({l, n}) ]),
@@ -148,7 +149,7 @@ handle_call(stop, _, S=#state{}) ->
 
 handle_call({rpc, Cmd, Args}, _, S=#state{ reach = Pid, ws_msg_id = Id }) ->
 	Text = jiffy:encode(#{ id => Id, method => Cmd, params => Args, jsonrpc => <<"2.0">> }),
-	lager:debug("ws out:~p", [Text]),
+	lager:debug("ws out:~s", [Text]),
 	gun:ws_send(Pid, {text, Text}),
 	{reply, Id, S#state{ws_msg_id = Id + 1}};
 
