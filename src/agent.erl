@@ -29,7 +29,6 @@
 
 -define(STEP, 1000).
 
-pid(Login) when is_binary(Login) -> pid(erlang:binary_to_list(Login));
 pid(Login) -> gproc:whereis_name({n, l, {?MODULE, Login}}).
 
 rpc_call(Agent, Cmd, Args) ->
@@ -74,7 +73,7 @@ init([Host, Port, A=#agent{login=Login}]) ->
 	{ok, Reach} = gun:open(Host, Port),
 	monitor(process, Reach),
 	gproc:reg({n, l, {?MODULE, Login}}, A),
-	call:subscribe(event, "SYNC"),
+	call:subscribe(event, <<"SYNC">>),
 	{ok, WsLog} = event_log:start_link(),
 	{ok, #state{ reach = Reach, agent = A, ws_log = WsLog }}.
 
@@ -108,20 +107,20 @@ handle_info(ping, S=#state{ reach = Pid, ws_msg_id = Id }) ->
 
 handle_info(auth, S=#state{ reach = Pid, agent = #agent{login=Login, password=Password} }) ->
 	gun:post(Pid, "/login", [{<<"content-type">>, <<"application/x-www-form-urlencoded">>}],
-		<<"username=", (to_bin(Login))/binary, "&password=", (to_bin(Password))/binary, "&remember=on">>),
+		<<"username=", Login/binary, "&password=", Password/binary, "&remember=on">>),
 	{noreply, S#state{http_request=auth}};
 
 handle_info({'DOWN', _Ref, process, Pid, _Reason}, S=#state{ reach=Pid }) ->
 	lager:info("reach connection is dead, pid:~p reason:~p", [Pid, _Reason]),
 	{stop, normal, S};
 
-handle_info({call, UUID, #{ "Caller-Destination-Number" := Number, "Caller-Logical-Direction" := "inbound" }}, S=#state{ agent=#agent{ number = Number }}) ->
+handle_info({call, UUID, #{ <<"Caller-Destination-Number">> := Number, <<"Caller-Logical-Direction">> := <<"inbound">> }}, S=#state{ agent=#agent{ number = Number }}) ->
 	call:link_process(UUID, self()),
 	call:subscribe(uuid, UUID),
 	handle_incoming_call(UUID, S);
 handle_info({call, _, _}, S=#state{}) -> {noreply, S};
 
-handle_info({call, "CHANNEL_HANGUP"}, S=#state{}) ->
+handle_info({call, <<"CHANNEL_HANGUP">>}, S=#state{}) ->
 	{noreply, S#state{incoming_call=undefined}};
 handle_info({call, _}, S=#state{}) -> {noreply, S};
 
@@ -163,7 +162,7 @@ handle_cast(_Msg, S=#state{}) -> {noreply, S}.
 
 terminate(_Reason, S=#state{reach=Pid, auto_delete=true, agent=#agent{login=Login}}) ->
 	lager:info("terminate with auto_delete, login:~p reason:~p", [Login, _Reason]),
-	handle_call({rpc, <<"ouc_rpc_adm.delete_agent">>, [to_bin(Login)]}, erlang:make_ref(), S),
+	handle_call({rpc, <<"ouc_rpc_adm.delete_agent">>, [Login]}, erlang:make_ref(), S),
 	gun:close(Pid),
 	ok;
 terminate(_Reason, _S=#state{reach=Pid, agent=#agent{login=Login}}) ->
@@ -198,8 +197,6 @@ maybe_notify_waiter(S=#state{wait_for_incoming=From, incoming_call=UUID}) ->
 
 to_map(H) ->
 	lists:foldl(fun({K,V}, M) -> M#{ K => V } end, #{}, H).
-
-to_bin(L) when is_list(L) -> erlang:list_to_binary(L).
 
 % connect and authenticate with reach
 % accept and manipulate incoming calls

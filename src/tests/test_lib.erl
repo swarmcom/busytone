@@ -24,6 +24,6 @@ ensureTalking(UUID1, UUID2) -> ensureTalking(UUID1, UUID2, 5000).
 ensureTalking(UUID1, UUID2, Timeout) ->
 	call:execute(UUID1, "playback", "tone_stream://%(3000, 0, 2600)"),
 	call:detect_tone(UUID2, "2600"),
-	call:wait_event(UUID2, #{ "Event-Name" => "DETECTED_TONE" }, Timeout),
+	call:wait_event(UUID2, #{ <<"Event-Name">> => <<"DETECTED_TONE">> }, Timeout),
 	call:stop_detect_tone(UUID2).
 

@@ -16,7 +16,7 @@ new_profile(M) -> gen_server:call(?MODULE, {new_profile, M}).
 
 init([Parent]) ->
 	lager:notice("start pid:~p", [Parent]),
-	Admin = test_lib:login("agent1", "1234", "agent1"),
+	Admin = test_lib:login( <<"agent1">>, <<"1234">>, <<"agent1">>),
 	erlang:monitor(process, Parent),
 	{ok, #state{user=Admin, parent=Parent}}.
 handle_cast(_Msg, S=#state{}) ->
@@ -32,7 +32,7 @@ handle_info(_Info, S=#state{}) ->
 
 handle_call({new_agent, Map}, _, S=#state{user=Admin}) ->
 	[Login, Password, Number] = agent:rpc_call(Admin, <<"ouc_rpc_adm.create_test_agent">>, [Map]),
-	Agent = test_lib:login(b2l(Login), b2l(Password), b2l(Number)),
+	Agent = test_lib:login(Login, Password, Number),
 	agent:auto_delete(Agent, true),
 	{reply, Agent, S};
 
@@ -48,8 +48,6 @@ terminate(_Reason, _S=#state{profiles=Profiles, user=Admin}) ->
 	[ delete_profile(Admin, Profile) || Profile <- Profiles ],
 	ok.
 code_change(_OldVsn, S=#state{}, _Extra) -> {ok, S}.
-
-b2l(B) -> erlang:binary_to_list(B).
 
 delete_profile(Admin, Profile) ->
 	<<"ok">> = agent:rpc_call(Admin, <<"ouc_rpc_adm.delete_profile">>, [Profile]).

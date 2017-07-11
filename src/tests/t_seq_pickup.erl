@@ -12,7 +12,7 @@ pickup(Agent, Ch, InCall) ->
 main() ->
 	{ok, InCall1} = call_sup:originate("sofia/gateway/reach/9999"),
 	{ok, InCall2} = call_sup:originate("sofia/gateway/reach/9999"),
-	Agent = agent_sup:agent("agent1", "1234", "agent1"),
+	Agent = agent_sup:agent( <<"agent2">>, <<"1234">>, <<"agent2">> ),
 	agent:wait_ws(Agent, #{ <<"username">> => Agent }),
 	agent:available(Agent),
 	agent:wait_ws(Agent, #{ <<"command">> => <<"arelease">>, <<"releaseData">> => false }),

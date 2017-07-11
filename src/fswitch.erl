@@ -72,6 +72,9 @@ parse_uuid_dump_string(Str) ->
 
 parse_uuid_dump(Pairs) ->
 	{Variables, Vars} = lists:partition(fun is_variable/1, Pairs),
-	VarMap = lists:foldl(fun({K,V}, M) -> M#{ K => V} end, #{}, Vars),
-	VariableMap = lists:foldl(fun({K,V}, M) -> M#{ variable(K) => V} end, #{}, Variables),
+	VarMap = lists:foldl(fun({K,V}, M) -> M#{ to_bin(K) => to_bin(V) } end, #{}, Vars),
+	VariableMap = lists:foldl(fun({K,V}, M) -> M#{ to_bin(variable(K)) => to_bin(V) } end, #{}, Variables),
 	{VarMap, VariableMap}.
+
+to_bin(B) when is_list(B) -> erlang:list_to_binary(B);
+to_bin(X) -> X.

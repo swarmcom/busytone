@@ -26,7 +26,7 @@ handle_info(_Info, S=#state{}) ->
 
 handle_call(A=#agent{login=Login}, {Pid, _Ref}, S=#state{host=Host, port=Port}) ->
 	agent:start(Pid, Host, Port, A),
-	{reply, erlang:list_to_binary(Login), S};
+	{reply, Login, S};
 
 handle_call(_Request, _From, S=#state{}) ->
 	lager:error("unhandled call:~p", [_Request]),

@@ -150,7 +150,7 @@ handle_info(sync_state, S=#state{uuid=UUID}) ->
 	{ok, Dump} = fswitch:api("uuid_dump ~s", [UUID]),
 	Pairs = fswitch:parse_uuid_dump_string(Dump),
 	{Vars, Variables} = fswitch:parse_uuid_dump(Pairs),
-	handle_event(Vars#{ "Event-Name" => "SYNC" }, Variables, S);
+	handle_event(Vars#{ <<"Event-Name">> => <<"SYNC">> }, Variables, S);
 
 handle_info({'DOWN', _Ref, process, _Pid, _Reason}, S=#state{}) ->
 	lager:info("owner is dead, pid:~p reason:~p", [_Pid, _Reason]),
@@ -197,8 +197,8 @@ terminate(_Reason, _S=#state{uuid=UUID, wait_hangup=WaitList}) ->
 
 code_change(_OldVsn, S=#state{}, _Extra) -> {ok, S}.
 
-handle_event(Vars = #{ "Event-Name" := Ev }, Variables, S=#state{uuid=UUID, event_log=EvLog}) ->
-	lager:debug("ev:~s uuid:~s", [Ev, UUID]),
+handle_event(Vars = #{ <<"Event-Name">> := Ev }, Variables, S=#state{uuid=UUID, event_log=EvLog}) ->
+	lager:debug("ev:~s uuid:~s ~p", [Ev, UUID, maps:get(<<"Caller-Destination-Number">>, Vars, undefined)]),
 	gproc:send({p, l, {?MODULE, uuid, UUID}}, {?MODULE, Ev}),
 	gproc:send({p, l, {?MODULE, event, Ev}}, {?MODULE, UUID, Vars}),
 	gproc:set_value({n, l, {?MODULE, UUID}}, Vars),
@@ -208,7 +208,7 @@ handle_event(Vars = #{ "Event-Name" := Ev }, Variables, S=#state{uuid=UUID, even
 	end,
 	{noreply, set_call_state(maybe_set_vairables(Variables, S#state{vars=Vars}))}.
 
-set_call_state(S=#state{ vars = #{ "Channel-Call-State" := State } }) -> S#state{ call_state = State };
+set_call_state(S=#state{ vars = #{ <<"Channel-Call-State">> := State } }) -> S#state{ call_state = State };
 set_call_state(S) -> S.
 
 maybe_set_vairables(Variables, S) when Variables =:= #{} -> S;
