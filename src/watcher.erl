@@ -1,9 +1,7 @@
 -module(watcher).
--behaviour(gen_server).
-
 -export([start_link/1, start_link/2]).
 
--export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
+-export([init/1, handle_info/2]).
 
 -record(state, {mfa, timeout, pid}).
 
@@ -18,10 +16,6 @@ init({MFA, Timeout}) ->
 	start_after(0),
 	{ok, #state{mfa=MFA, timeout=Timeout}}.
 
-handle_cast(_Msg, S=#state{}) ->
-	lager:error("unhandled cast:~p", [_Msg]),
-	{noreply, S}.
-
 handle_info({'EXIT', _FromPid, Reason}, S=#state{timeout=T}) ->
 	lager:info("child is dead, reason:~p:", [Reason]),
 	start_after(T),
@@ -34,10 +28,3 @@ handle_info(start, S=#state{mfa={M, F, A}}) ->
 handle_info(_Info, S=#state{}) ->
 	lager:error("unhandled info:~p", [_Info]),
 	{noreply, S}.
-
-handle_call(_Request, _From, S=#state{}) ->
-	{reply, ok, S}.
-terminate(_Reason, _S) ->
-	lager:notice("terminate, reason:~p", [_Reason]),
-	ok.
-code_change(_OldVsn, S=#state{}, _Extra) -> {ok, S}.
