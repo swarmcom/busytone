@@ -68,7 +68,7 @@ fetch_reply(Node, FetchID, Reply) ->
 api(Node, Cmd) -> api(Node, Cmd, "").
 
 api(Node, Cmd, Args) ->
-	lager:info("fs api ~p ~p ~p", [Node, Cmd, Args]),
+	lager:info("fs api ~s ~s ~s", [Node, Cmd, Args]),
 	{api, Node} ! {api, Cmd, Args},
 	receive
 		{ok, X} -> 

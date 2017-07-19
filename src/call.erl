@@ -90,7 +90,7 @@ wait_event(Id, Match, Timeout) ->
 sync_state(Pid) when is_pid(Pid) -> Pid ! sync_state.
 
 init([UUID]) ->
-	lager:info("start, uuid:~p", [UUID]),
+	lager:info("start, uuid:~s", [UUID]),
 	gproc:reg({n, l, {?MODULE, UUID}}),
 	sync_state(self()),
 	{ok, EvLog} = event_log:start_link(),

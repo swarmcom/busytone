@@ -3,7 +3,7 @@
 
 main() ->
 	call_sup:originate(<<"sofia/gateway/reach/9999">>),
-	Agent = admin_user:new_agent(),
+	Agent = admin:new_agent(),
 	agent:wait_ws(Agent, #{ <<"username">> => Agent }),
 	agent:available(Agent),
 	agent:wait_ws(Agent, #{ <<"command">> => <<"arelease">>, <<"releaseData">> => false }),

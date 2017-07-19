@@ -12,7 +12,7 @@ start_link() ->
 
 init(_Args) ->
 	lager:notice("start"),
-	SupFlags = #{strategy => one_for_one, intensity => 2, period => 5},
+	SupFlags = #{strategy => one_for_one, intensity => 9000, period => 5},
 	Fs = cfg(freeswitch_drone),
 	Host = cfg(reach_host),
 	Port = cfg(reach_port),
@@ -21,6 +21,7 @@ init(_Args) ->
 		?CHILD(call_sup, []),
 		?CHILD(fswitch, [Fs]),
 		?CHILD(agent_sup, [Host, Port]),
-		?CHILD(test_sup, [Admin])
+		?CHILD(test_sup, []),
+		?CHILD(watcher, [{admin, start_link, [Admin]}, 0])
 	],
 	{ok, {SupFlags, ChildSpecs}}.

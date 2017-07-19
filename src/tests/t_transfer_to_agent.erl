@@ -4,7 +4,7 @@
 % see: https://ezuce.testrail.com/index.php?/cases/view/3510
 
 main() ->
-	Agent1 = test_lib:available(admin_user:new_agent()),
+	Agent1 = test_lib:available(admin:new_agent()),
 	{ok, InQueueCall} = call_sup:originate(<<"sofia/gateway/reach/9999">>),
 	agent:wait_ws(Agent1, #{ <<"command">> => <<"setchannel">>, <<"state">> => <<"ringing">> }),
 	[UUID] = agent:wait_for_call(Agent1),
@@ -12,7 +12,7 @@ main() ->
 	agent:wait_ws(Agent1, #{ <<"command">> => <<"mediaload">>, <<"channelid">> => <<"ch1">> }),
 	test_lib:ensureTalking(InQueueCall, UUID),
 
-	Agent2 = test_lib:available(admin_user:new_agent()),
+	Agent2 = test_lib:available(admin:new_agent()),
 	#{<<"transfer_agents">> := #{ Agent2 := #{ <<"state">> := <<"available">> }}} =
 		agent:rpc_call(Agent1, <<"ouc.get_transfer_agents">>, []),
 	agent:rpc(Agent1, <<"transfer_to_agent">>, [<<"ch1">>, Agent2]),
