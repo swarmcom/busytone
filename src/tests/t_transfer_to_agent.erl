@@ -5,7 +5,7 @@
 
 main() ->
 	Agent1 = test_lib:available(admin:new_agent()),
-	{ok, InQueueCall} = call_sup:originate(<<"sofia/gateway/reach/9999">>),
+	{ok, InQueueCall} = call_sup:originate(<<"9999">>),
 	agent:wait_ws(Agent1, #{ <<"command">> => <<"setchannel">>, <<"state">> => <<"ringing">> }),
 	[UUID] = agent:wait_for_call(Agent1),
 	ok = call:answer(UUID),

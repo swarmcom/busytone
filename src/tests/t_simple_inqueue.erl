@@ -2,7 +2,7 @@
 -export([main/0]).
 
 main() ->
-	call_sup:originate(<<"sofia/gateway/reach/9999">>),
+	call_sup:originate(<<"9999">>),
 	Agent = admin:new_agent(),
 	agent:wait_ws(Agent, #{ <<"username">> => Agent }),
 	agent:available(Agent),

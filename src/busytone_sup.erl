@@ -17,8 +17,9 @@ init(_Args) ->
 	Host = cfg(reach_host),
 	Port = cfg(reach_port),
 	Admin = cfg(admin_user),
+	FSURI = cfg(freeswitch_tmpl),
 	ChildSpecs = [
-		?CHILD(call_sup, []),
+		?CHILD(call_sup, [FSURI]),
 		?CHILD(fswitch, [Fs]),
 		?CHILD(agent_sup, [Host, Port]),
 		?CHILD(test_sup, []),

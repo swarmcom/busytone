@@ -6,7 +6,7 @@ main() ->
 	agent:wait_ws(Agent, #{ <<"username">> => Agent }),
 	agent:available(Agent),
 	agent:wait_ws(Agent, #{ <<"command">> => <<"arelease">>, <<"releaseData">> => false }),
-	{ok, InQueueCall} = call_sup:originate(<<"sofia/gateway/reach/9999">>),
+	{ok, InQueueCall} = call_sup:originate(<<"9999">>),
 	agent:wait_ws(Agent, #{ <<"command">> => <<"setchannel">>, <<"state">> => <<"ringing">>, <<"channelid">> => <<"ch1">> }),
 	agent:wait_ws(Agent, #{ <<"command">> => <<"endchannel">>, <<"channelid">> => <<"ch1">> }, 15000),
 	[UUID] = agent:wait_for_call(Agent),

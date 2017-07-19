@@ -5,17 +5,19 @@
 -define(ORIGINATE_TIMEOUT, 5000).
 
 -export([
-	start_link/0, originate/3, originate/2, originate/1
+	start_link/0, start_link/1, originate/3, originate/2, originate/1
 ]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
 -record(state, {
+	template,
 	originate_map
 }).
 
-start_link() ->
-	gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
+start_link() -> start_link("~s").
+start_link(Template) ->
+	gen_server:start_link({local, ?MODULE}, ?MODULE, [Template], []).
 
 originate(Url, Exten, Opts, Timeout) -> gen_server:call(?MODULE, {originate, self(), Timeout, Url, Exten, Opts}, Timeout).
 originate(Url, Exten, Opts) -> originate(Url, Exten, Opts, ?ORIGINATE_TIMEOUT).
@@ -24,8 +26,8 @@ originate(Url) -> originate(Url, []).
 
 self_exten() -> io_lib:format("&erlang('~s:! ~s')", [?MODULE, node()]).
 
-init([]) ->
-	{ok, #state{originate_map=#{}}}.
+init([Template]) ->
+	{ok, #state{originate_map=#{}, template=Template}}.
 
 handle_info({freeswitch_sendmsg, Str}, #state{}=S) ->
 	UUID = erlang:list_to_binary(Str),
@@ -66,8 +68,8 @@ handle_cast(_Msg, S=#state{}) ->
 	lager:error("unhandled cast:~p", [_Msg]),
 	{noreply, S}.
 
-handle_call({originate, OwnerPid, Timeout, URL, Exten, Opts}, From, S=#state{originate_map=M}) ->
-	case fswitch:api("originate ~s~s ~s", [stringify_opts(Opts), URL, Exten]) of
+handle_call({originate, OwnerPid, Timeout, URL, Exten, Opts}, From, S=#state{originate_map=M, template=T}) ->
+	case fswitch:api("originate ~s~s ~s", [stringify_opts(Opts), template(T, URL), Exten]) of
 		{ok, "+OK "++UUID} ->
 			UUID1 = erlang:list_to_binary(trim(UUID)),
 			timer:send_after(Timeout+1000, {originate_cleanup, UUID1, From}), 
@@ -92,3 +94,5 @@ stringify_opts([]) -> "";
 stringify_opts(Opts) when is_list(Opts) ->
 	Str = string:join([ io_lib:format("~s=~s", [K,V]) || {K, V} <- Opts ], ","),
 	io_lib:format("{~s}", [Str]).
+
+template(T, N) -> io_lib:format(T, [N]).
