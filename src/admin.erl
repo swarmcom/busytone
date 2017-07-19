@@ -54,11 +54,10 @@ handle_call(_Request, _From, S=#state{}) ->
 	{reply, ok, S}.
 
 terminate(_Reason, _S=#state{user=Admin, watch=W}) ->
-	lager:notice("terminate, reason:~p", [_Reason]),
+	lager:info("terminate, reason:~p", [_Reason]),
 	[ delete(Admin, Value) || Value <- maps:values(W) ],
 	ok.
 code_change(_OldVsn, S=#state{}, _Extra) -> {ok, S}.
 
 delete(Admin, {agent, Agent}) -> <<"ok">> = agent:rpc_call(Admin, <<"ouc_rpc_adm.delete_agent">>, [Agent]);
 delete(Admin, {profile, Profile}) -> <<"ok">> = agent:rpc_call(Admin, <<"ouc_rpc_adm.delete_profile">>, [Profile]).
-
