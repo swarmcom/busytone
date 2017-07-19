@@ -10,9 +10,9 @@ pickup(Agent, Ch, InCall) ->
 	call:wait_hangup(UUID).
 
 main() ->
-	{ok, InCall1} = call_sup:originate("sofia/gateway/reach/9999"),
-	{ok, InCall2} = call_sup:originate("sofia/gateway/reach/9999"),
-	Agent = agent_sup:agent( <<"agent2">>, <<"1234">>, <<"agent2">> ),
+	{ok, InCall1} = call_sup:originate(<<"sofia/gateway/reach/9999">>),
+	{ok, InCall2} = call_sup:originate(<<"sofia/gateway/reach/9999">>),
+	Agent = admin_user:new_agent(),
 	agent:wait_ws(Agent, #{ <<"username">> => Agent }),
 	agent:available(Agent),
 	agent:wait_ws(Agent, #{ <<"command">> => <<"arelease">>, <<"releaseData">> => false }),

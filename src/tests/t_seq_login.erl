@@ -2,7 +2,7 @@
 -export([main/0]).
 
 login() ->
-	Agent = agent_sup:agent(<<"agent2">>, <<"1234">>, <<"agent2">>),
+	Agent = admin_user:new_agent(),
 	agent:wait_ws(Agent, #{ <<"username">> => Agent }),
 	agent:available(Agent),
 	agent:wait_ws(Agent, #{ <<"command">> => <<"arelease">>, <<"releaseData">> => false }),
