@@ -1,6 +1,6 @@
 -module(busytone_sup).
 -behaviour(supervisor).
--export([start_link/0, init/1]).
+-export([start_link/0, init/1, cfg/1]).
 -include_lib("busytone/include/busytone.hrl").
 
 -define(CHILD(M, A), #{ id => M, start => {M, start_link, A}, restart => permanent, shutdown => 2000, type => worker }).
@@ -16,10 +16,11 @@ init(_Args) ->
 	Fs = cfg(freeswitch_drone),
 	Host = cfg(reach_host),
 	Port = cfg(reach_port),
+	Admin = cfg(admin_user),
 	ChildSpecs = [
 		?CHILD(call_sup, []),
 		?CHILD(fswitch, [Fs]),
 		?CHILD(agent_sup, [Host, Port]),
-		?CHILD(test_sup, [])
+		?CHILD(test_sup, [Admin])
 	],
 	{ok, {SupFlags, ChildSpecs}}.

@@ -1,22 +1,23 @@
 -module(admin_user).
 -behaviour(gen_server).
 
--export([start_link/0, new_agent/1, new_profile/0, new_profile/1]).
+-export([start_link/1, new_agent/0, new_agent/1, new_profile/0, new_profile/1]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
 -record(state, {user, parent, profiles=[]}).
 
-start_link() ->
-	gen_server:start_link({local, ?MODULE}, ?MODULE, [self()], []).
+start_link(Admin) ->
+	gen_server:start_link({local, ?MODULE}, ?MODULE, [self(), Admin], []).
 
+new_agent() -> new_agent(#{ skills => #{ english => true } }).
 new_agent(M) -> gen_server:call(?MODULE, {new_agent, M}).
 new_profile() -> new_profile(#{}).
 new_profile(M) -> gen_server:call(?MODULE, {new_profile, M}).
 
-init([Parent]) ->
-	lager:notice("start pid:~p", [Parent]),
-	Admin = test_lib:login( <<"agent1">>, <<"1234">>, <<"agent1">>),
+init([Parent, {Login, Pass}=_A]) ->
+	lager:notice("start, parent pid:~p admin:~p", [Parent, _A]),
+	Admin = test_lib:login(Login, Pass, Login),
 	erlang:monitor(process, Parent),
 	{ok, #state{user=Admin, parent=Parent}}.
 handle_cast(_Msg, S=#state{}) ->

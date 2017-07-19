@@ -1,23 +1,23 @@
 -module(test_run).
 -behaviour(gen_server).
 
--export([start/0, start_link/0, stop/1, run/2]).
+-export([start/1, start_link/1, stop/1, run/2]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
--record(state, {}).
+-record(state, {admin}).
 
-start() -> gen_server:start(?MODULE, [], []).
-start_link() -> gen_server:start_link(?MODULE, [], []).
+start(Admin) -> gen_server:start(?MODULE, [Admin], []).
+start_link(Admin) -> gen_server:start_link(?MODULE, [Admin], []).
 
 run(Pid, Test) -> gen_server:call(Pid, {run, Test}, infinity).
 stop(Pid) -> gen_server:stop(Pid).
 
-init([]) ->
-	lager:info("start", []),
-	{ok, Pid} = admin_user:start_link(),
+init([Admin]) ->
+	lager:info("start, admin:~p", [Admin]),
+	{ok, Pid} = admin_user:start_link(Admin),
 	erlang:link(Pid),
-	{ok, #state{}}.
+	{ok, #state{admin=Admin}}.
 
 handle_cast(stop, S) -> {stop, normal, S};
 handle_cast(_Msg, S=#state{}) -> lager:error("unhandled cast:~p", [_Msg]), {noreply, S}.
