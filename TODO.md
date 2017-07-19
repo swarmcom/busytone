@@ -3,17 +3,20 @@ BusyTone TODO
 
 ## On
 
-2. In order to conduct tests there should be a way to alter (add/remove) agent/queues/skills properties dynamically
+1. Fix failing tests
+2. Fix errors in Reach
 
 ## Other
 
-1. fs_sync should be able to compile newly added modules
-2. Use sys.config param to place calls to Reach by numbers only
-3. Add call stubs for agent? e.g. agent:hangup/1, agent:answer/1?
+1. Add recipe tests
+2. Add and distinguish Queues
 
 Done
 ====
 
+2. Use sys.config param to place calls to Reach by numbers only
+1. fs_sync should be able to compile newly added modules
+1. In order to conduct tests there should be a way to alter (add/remove) agent/queues/skills properties dynamically
 1. Create a transfer to agent test
 3. Provide a library for test functions
 1. Allow to execute tests in a sequence, but each in it's own process (not to spawn)
