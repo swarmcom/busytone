@@ -27,12 +27,14 @@ self_exten() -> io_lib:format("&erlang('~s:! ~s')", [?MODULE, node()]).
 init([]) ->
 	{ok, #state{originate_map=#{}}}.
 
-handle_info({freeswitch_sendmsg, UUID}, #state{}=S) ->
+handle_info({freeswitch_sendmsg, Str}, #state{}=S) ->
+	UUID = erlang:list_to_binary(Str),
 	lager:info("incoming message, uuid:~s", [UUID]),
 	{ok, _Pid} = call:start_link(UUID),
 	{noreply, S};
 
-handle_info({get_pid, UUID, Ref, From}, #state{originate_map=M}=S) ->
+handle_info({get_pid, Str, Ref, From}, #state{originate_map=M}=S) ->
+	UUID = erlang:list_to_binary(Str),
 	lager:info("call control request, uuid:~s", [UUID]),
 	CallPid =
 		case call:pid(UUID) of
@@ -67,7 +69,7 @@ handle_cast(_Msg, S=#state{}) ->
 handle_call({originate, OwnerPid, Timeout, URL, Exten, Opts}, From, S=#state{originate_map=M}) ->
 	case fswitch:api("originate ~s~s ~s", [stringify_opts(Opts), URL, Exten]) of
 		{ok, "+OK "++UUID} ->
-			UUID1 = trim(UUID),
+			UUID1 = erlang:list_to_binary(trim(UUID)),
 			timer:send_after(Timeout+1000, {originate_cleanup, UUID1, From}), 
 			{noreply, S#state{ originate_map = M#{ UUID1 => {OwnerPid, From} }}};
 		_Err ->

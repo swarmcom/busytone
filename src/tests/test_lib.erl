@@ -11,7 +11,8 @@ login(Login, Password, Number) ->
 
 available(Agent) ->
 	agent:available(Agent),
-	agent:wait_ws(Agent, #{ <<"command">> => <<"arelease">>, <<"releaseData">> => false }).
+	agent:wait_ws(Agent, #{ <<"command">> => <<"arelease">>, <<"releaseData">> => false }),
+	Agent.
 
 login_available(Login, Password, Number) ->
 	Agent = agent_sup:agent(Login, Password, Number),
@@ -26,4 +27,3 @@ ensureTalking(UUID1, UUID2, Timeout) ->
 	call:detect_tone(UUID2, "2600"),
 	call:wait_event(UUID2, #{ <<"Event-Name">> => <<"DETECTED_TONE">> }, Timeout),
 	call:stop_detect_tone(UUID2).
-

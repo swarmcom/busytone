@@ -90,7 +90,7 @@ wait_event(Id, Match, Timeout) ->
 sync_state(Pid) when is_pid(Pid) -> Pid ! sync_state.
 
 init([UUID]) ->
-	lager:info("start, uuid:~s", [UUID]),
+	lager:info("start, uuid:~p", [UUID]),
 	gproc:reg({n, l, {?MODULE, UUID}}),
 	sync_state(self()),
 	{ok, EvLog} = event_log:start_link(),
@@ -136,15 +136,27 @@ handle_cast(_Msg, S=#state{}) ->
 	lager:error("unhandled cast:~p", [_Msg]),
 	{noreply, S}.
 
+% these messages come directly from fs, convert uuid to binary
+
+handle_info({call_event, {event,[UUID|Pairs]}}, S=#state{}) when is_list(UUID) ->
+	handle_info({call_event, {event,[erlang:list_to_binary(UUID)|Pairs]}}, S);
+
 handle_info({call_event, {event,[UUID|Pairs]}}, S=#state{uuid=UUID}) ->
 	{Vars, Variables} = fswitch:parse_uuid_dump(Pairs),
-	handle_event(Vars, Variables, S#state{});
+	handle_event(Vars, Variables, S);
+
+handle_info({call, {event,[UUID|Pairs]}}, S=#state{}) when is_list(UUID) ->
+	handle_info({call, {event,[erlang:list_to_binary(UUID)|Pairs]}}, S);
 
 handle_info({call, {event,[UUID|Pairs]}}, S=#state{uuid=UUID}) ->
 	{Vars, Variables} = fswitch:parse_uuid_dump(Pairs),
-	handle_event(Vars, Variables, S#state{});
+	handle_event(Vars, Variables, S);
 
-handle_info({call_hangup, UUID}, S=#state{uuid=UUID}) -> {stop, normal, S};
+handle_info({call_hangup, UUID}, S=#state{}) when is_list(UUID) ->
+	handle_info({call_hangup, erlang:list_to_binary(UUID)}, S);
+
+handle_info({call_hangup, UUID}, S=#state{uuid=UUID}) ->
+	{stop, normal, S};
 
 handle_info(sync_state, S=#state{uuid=UUID}) ->
 	{ok, Dump} = fswitch:api("uuid_dump ~s", [UUID]),
