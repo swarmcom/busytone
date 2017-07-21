@@ -4,12 +4,14 @@
 -export([start_link/1,
 	new_agent/0, new_agent/1, get_agent/1, update_agent/2,
 	get_profile/1, new_profile/0, new_profile/1, update_profile/2,
+	new_queue/0, new_queue/1, get_queue/1, update_queue/2,
+	new_group/0, new_group/1, get_group/1, update_group/2,
 	rpc_call/2,
 	stop/0]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
--record(state, {user, agent=1, profile=1, watch=#{}}).
+-record(state, {user, agent=1, profile=1, queue=1, group=1, watch=#{}}).
 
 start_link(Admin) ->
 	gen_server:start_link({local, ?MODULE}, ?MODULE, [Admin], []).
@@ -18,10 +20,19 @@ new_agent() -> new_agent(#{ skills => #{ english => true } }).
 new_agent(M) -> gen_server:call(?MODULE, {new_agent, M}).
 new_profile() -> new_profile(#{}).
 new_profile(M) -> gen_server:call(?MODULE, {new_profile, M}).
+new_queue() -> new_queue(#{}).
+new_queue(M) -> gen_server:call(?MODULE, {new_queue, M}).
+new_group() -> new_group(#{}).
+new_group(M) -> gen_server:call(?MODULE, {new_group, M}).
 get_agent(Login) -> gen_server:call(?MODULE, {get_agent, Login}).
-update_agent(Login, Props) -> gen_server:call(?MODULE, {update_agent, Login, Props}).
 get_profile(Name) -> gen_server:call(?MODULE, {get_profile, Name}).
+get_queue(Name) -> gen_server:call(?MODULE, {get_queue, Name}).
+get_group(Name) -> gen_server:call(?MODULE, {get_group, Name}).
+update_agent(Login, Props) -> gen_server:call(?MODULE, {update_agent, Login, Props}).
 update_profile(Name, Props) -> gen_server:call(?MODULE, {update_profile, Name, Props}).
+update_queue(Name, Props) -> gen_server:call(?MODULE, {update_queue, Name, Props}).
+update_group(Name, Props) -> gen_server:call(?MODULE, {update_group, Name, Props}).
+
 rpc_call(Cmd, Args) -> gen_server:call(?MODULE, {rpc_call, Cmd, Args}).
 
 stop() -> gen_server:cast(?MODULE, {stop}).
@@ -58,20 +69,46 @@ handle_call({new_profile, M}, {Pid, _Ref}, S=#state{profile=Id, user=Admin, watc
 	Name = agent:rpc_call(Admin, <<"ouc_rpc_adm.create_profile">>, [M#{ id => ProfileId }]),
 	{reply, Name, S#state{profile=Id+1, watch=W#{ erlang:monitor(process, Pid) => {profile, Name} }}};
 
+handle_call({new_queue, M}, {Pid, _Ref}, S=#state{queue=Id, user=Admin, watch=W}) ->
+	QueueId = <<"test_queue_", (erlang:integer_to_binary(Id))/binary>>,
+	Name = agent:rpc_call(Admin, <<"ouc_rpc_adm.create_queue">>, [M#{ name => QueueId }]),
+	{reply, Name, S#state{queue=Id+1, watch=W#{ erlang:monitor(process, Pid) => {queue, Name} }}};
+
+handle_call({new_group, M}, {Pid, _Ref}, S=#state{group=Id, user=Admin, watch=W}) ->
+	GroupId = <<"test_queue_group_", (erlang:integer_to_binary(Id))/binary>>,
+	Name = agent:rpc_call(Admin, <<"ouc_rpc_adm.create_group">>, [M#{ name => GroupId }]),
+	{reply, Name, S#state{group=Id+1, watch=W#{ erlang:monitor(process, Pid) => {group, Name} }}};
+
 handle_call({get_agent, Login}, _, S=#state{user=Admin}) ->
 	Agent = agent:rpc_call(Admin, <<"ouc_rpc_adm.get_agent">>, [Login]),
 	{reply, Agent, S};
-
-handle_call({update_agent, Login, Diff}, _, S=#state{user=Admin}) ->
-	Re = agent:rpc_call(Admin, <<"ouc_rpc_adm.update_agent">>, [Login, Diff]),
-	{reply, Re, S};
 
 handle_call({get_profile, Name}, _, S=#state{user=Admin}) ->
 	Re = agent:rpc_call(Admin, <<"ouc_rpc_adm.get_profile">>, [Name]),
 	{reply, Re, S};
 
+handle_call({get_queue, Name}, _, S=#state{user=Admin}) ->
+	Re = agent:rpc_call(Admin, <<"ouc_rpc_adm.get_queue">>, [Name]),
+	{reply, Re, S};
+
+handle_call({get_group, Name}, _, S=#state{user=Admin}) ->
+	Re = agent:rpc_call(Admin, <<"ouc_rpc_adm.get_group">>, [Name]),
+	{reply, Re, S};
+
+handle_call({update_agent, Login, Diff}, _, S=#state{user=Admin}) ->
+	Re = agent:rpc_call(Admin, <<"ouc_rpc_adm.update_agent">>, [Login, Diff]),
+	{reply, Re, S};
+
 handle_call({update_profile, Name, Diff}, _, S=#state{user=Admin}) ->
 	Re = agent:rpc_call(Admin, <<"ouc_rpc_adm.update_profile">>, [Name, Diff]),
+	{reply, Re, S};
+
+handle_call({update_queue, Name, Diff}, _, S=#state{user=Admin}) ->
+	Re = agent:rpc_call(Admin, <<"ouc_rpc_adm.update_queue">>, [Name, Diff]),
+	{reply, Re, S};
+
+handle_call({update_group, Name, Diff}, _, S=#state{user=Admin}) ->
+	Re = agent:rpc_call(Admin, <<"ouc_rpc_adm.update_group">>, [Name, Diff]),
 	{reply, Re, S};
 
 handle_call({rpc_call, Cmd, Args}, _, S=#state{user=Admin}) ->
@@ -88,5 +125,7 @@ terminate(_Reason, _S=#state{user=Admin, watch=W}) ->
 	ok.
 code_change(_OldVsn, S=#state{}, _Extra) -> {ok, S}.
 
+delete(Admin, {group, Group}) -> <<"ok">> = agent:rpc_call(Admin, <<"ouc_rpc_adm.delete_group">>, [Group]);
+delete(Admin, {queue, Queue}) -> <<"ok">> = agent:rpc_call(Admin, <<"ouc_rpc_adm.delete_queue">>, [Queue]);
 delete(Admin, {agent, Agent}) -> <<"ok">> = agent:rpc_call(Admin, <<"ouc_rpc_adm.delete_agent">>, [Agent]);
 delete(Admin, {profile, Profile}) -> <<"ok">> = agent:rpc_call(Admin, <<"ouc_rpc_adm.delete_profile">>, [Profile]).
