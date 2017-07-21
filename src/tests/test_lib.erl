@@ -1,7 +1,7 @@
 -module(test_lib).
 -export([
 	login/3, available/1,
-	ensureTalking/2, ensureTalking/3
+	answer/2, answer/1, ensureTalking/2, ensureTalking/3
 ]).
 
 login(Login, Password, Number) ->
@@ -13,6 +13,15 @@ available(Agent) ->
 	agent:available(Agent),
 	agent:wait_ws(Agent, #{ <<"command">> => <<"arelease">>, <<"releaseData">> => false }),
 	Agent.
+
+
+answer(Agent) -> answer(Agent, <<"ch1">>).
+answer(Agent, Ch) ->
+	[UUID] = agent:wait_for_call(Agent),
+	ok = call:answer(UUID),
+	call:wait_event(UUID, #{ <<"Event-Name">> => <<"CHANNEL_ANSWER">> }),
+	agent:wait_ws(Agent, #{ <<"command">> => <<"setchannel">>, <<"state">> => <<"oncall">>, <<"channelid">> => Ch }),
+	UUID.
 
 ensureTalking(UUID1, UUID2) -> ensureTalking(UUID1, UUID2, 5000).
 ensureTalking(UUID1, UUID2, Timeout) ->

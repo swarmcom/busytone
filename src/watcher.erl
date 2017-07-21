@@ -1,7 +1,7 @@
 -module(watcher).
 -export([start_link/1, start_link/2]).
 
--export([init/1, handle_info/2]).
+-export([init/1, handle_info/2, terminate/2]).
 
 -record(state, {mfa, timeout, pid}).
 
@@ -28,3 +28,7 @@ handle_info(start, S=#state{mfa={M, F, A}}) ->
 handle_info(_Info, S=#state{}) ->
 	lager:error("unhandled info:~p", [_Info]),
 	{noreply, S}.
+
+terminate(_Reason, _S) ->
+	lager:notice("terminate, reason:~p", [_Reason]),
+	ok.

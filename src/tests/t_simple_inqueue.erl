@@ -8,6 +8,4 @@ main() ->
 	agent:available(Agent),
 	agent:wait_ws(Agent, #{ <<"command">> => <<"arelease">>, <<"releaseData">> => false }),
 	agent:wait_ws(Agent, #{ <<"command">> => <<"setchannel">>, <<"state">> => <<"ringing">> }),
-	[UUID] = agent:wait_for_call(Agent),
-	ok = call:answer(UUID),
-	agent:wait_ws(Agent, #{ <<"command">> => <<"mediaload">>, <<"channelid">> => <<"ch1">> }).
+	test_lib:answer(Agent).

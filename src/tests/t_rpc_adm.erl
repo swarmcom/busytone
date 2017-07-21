@@ -3,11 +3,6 @@
 
 main() ->
 	Profile = admin:new_profile(),
-	Agent = admin:new_agent(#{ profile => Profile }),
-	Skills = agent:rpc_call(Agent, <<"ouc_rpc_adm.agent_skills">>, [Agent]),
-	false = maps:is_key(<<"english">>, agent:rpc_call(Agent, <<"ouc_rpc_adm.agent_skills">>, [Agent])),
-	<<"ok">> = agent:rpc_call(Agent, <<"ouc_rpc_adm.set_agent_skills">>, [Agent, Skills#{ english => true }]),
-	#{ <<"english">> := true } = agent:rpc_call(Agent, <<"ouc_rpc_adm.agent_skills">>, [Agent]),
-	#{ <<"english">> := true } = agent:rpc_call(Agent, <<"ouc_rpc_adm.agent_effective_skills">>, [Agent]),
-	<<"ok">> = agent:rpc_call(Agent, <<"ouc_rpc_adm.update_profile">>, [Profile, #{ skills => #{ german => true }}]),
-	#{ <<"english">> := true, <<"german">> := true } = agent:rpc_call(Agent, <<"ouc_rpc_adm.agent_effective_skills">>, [Agent]).
+	Login = admin:new_agent(#{ profile => Profile }),
+	#{ <<"login">> := <<"test_agent_1_login">> } = admin:get_agent(Login),
+	#{ <<"name">> := <<"test_profile_1_name">> } = admin:get_profile(Profile).
