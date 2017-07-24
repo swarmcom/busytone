@@ -1,4 +1,4 @@
--module(t_recipe_calls).
+-module(t_recipe_c3113).
 -export([main/0]).
 
 % C3113: Calls in queue >2, send to VM
