@@ -254,7 +254,7 @@ sendevent_custom(Node, SubClassName, Headers) ->
 %% @doc Send a message to the call identified by `UUID'. `Headers' is a list of
 %% `{Key, Value}' string tuples.
 sendmsg(Node, UUID, Headers) ->
-	lager:debug("fs sendmsg uuid:~p headers:~p", [UUID, Headers]),
+	lager:info("fs sendmsg uuid:~p headers:~p", [UUID, Headers]),
 	{sendmsg, Node} ! {sendmsg, UUID, Headers},
 	receive
 		ok ->

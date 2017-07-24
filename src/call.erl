@@ -83,7 +83,9 @@ record(Id, Action=stop, Path) -> gen_safe:call(Id, fun pid/1, {record, Action, P
 record(Id, Action=mask, Path) -> gen_safe:call(Id, fun pid/1, {record, Action, Path});
 record(Id, Action=unmask, Path) -> gen_safe:call(Id, fun pid/1, {record, Action, Path}).
 
-wait_event(Id, Match) -> wait_event(Id, Match, 5000).
+wait_event(Id, Event) when is_binary(Event) -> wait_event(Id, #{ <<"Event-Name">> => Event });
+wait_event(Id, Match) when is_map(Match) -> wait_event(Id, Match, 5000).
+wait_event(Id, Event, Timeout) when is_binary(Event) -> wait_event(Id, #{ <<"Event-Name">> => Event }, Timeout);
 wait_event(Id, Match, Timeout) ->
 	gen_safe:call(Id, fun pid/1, {wait_event, Match}, Timeout).
 
