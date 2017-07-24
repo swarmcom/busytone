@@ -2,11 +2,14 @@
 -export([
 	login/3, available/1,
 	answer/2, answer/1, ensureTalking/2, ensureTalking/3, detect_tone/2,
-	leave_voicemail/1
+	leave_voicemail/1, leave_voicemail/2, receive_voicemail/0
 ]).
 
 leave_voicemail(Queue) ->
 	{ok, VmCall} = call_sup:originate(Queue),
+	leave_voicemail(VmCall, call).
+
+leave_voicemail(VmCall, call) ->
 	call:detect_tone(VmCall, "500"),
 	call:wait_event(VmCall, <<"DETECTED_TONE">>),
 	call:execute(VmCall, "playback", "tone_stream://%(1500, 0, 2600)"),
@@ -14,6 +17,14 @@ leave_voicemail(Queue) ->
 	call:send_dtmf(VmCall, "*"),
 	timer:sleep(500),
 	call:hangup(VmCall).
+
+receive_voicemail() ->
+	Agent = test_lib:available(admin:new_agent()),
+	[UUID] = agent:wait_for_call(Agent),
+	ok = call:answer(UUID),
+	agent:wait_ws(Agent, #{ <<"event">> => <<"channel_playback_update">> }),
+	test_lib:detect_tone(UUID, <<"2600">>),
+	{Agent, UUID}.
 
 login(Login, Password, Number) ->
 	Agent = agent_sup:agent(Login, Password, Number),
