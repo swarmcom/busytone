@@ -7,7 +7,7 @@ main() ->
 	Queue = admin:new_queue(#{
 		skills => #{ english => true, german => true },
 		recipe => [ #{
-			conditions => [ [ticks, 5] ],
+			conditions => [ [ticks, 5], [available_agents, '=', 0] ],
 			operations => [ [remove_skills, #{ english => true }] ],
 			runs => run_many,
 			comment => <<"test">>

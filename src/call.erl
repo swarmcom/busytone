@@ -9,7 +9,7 @@
 	deflect/2, display/3, getvar/2, hold/1, hold/2, setvar/2, setvar/3, send_dtmf/2, broadcast/2, displace/3,
 	execute/3, tone_detect/4, detect_tone/2, stop_detect_tone/1,
 	transfer/2, transfer/3, transfer/4, record/3, command/3,
-	wait_event/2, wait_event/3,
+	wait_event/2, wait_event/3, wait_event_now/2, wait_event_now/3,
 	active/0, match_for/1
 ]).
 
@@ -83,11 +83,16 @@ record(Id, Action=stop, Path) -> gen_safe:call(Id, fun pid/1, {record, Action, P
 record(Id, Action=mask, Path) -> gen_safe:call(Id, fun pid/1, {record, Action, Path});
 record(Id, Action=unmask, Path) -> gen_safe:call(Id, fun pid/1, {record, Action, Path}).
 
-wait_event(Id, Event) when is_binary(Event) -> wait_event(Id, #{ <<"Event-Name">> => Event });
-wait_event(Id, Match) when is_map(Match) -> wait_event(Id, Match, 5000).
-wait_event(Id, Event, Timeout) when is_binary(Event) -> wait_event(Id, #{ <<"Event-Name">> => Event }, Timeout);
+event_match(Ev) when is_binary(Ev) -> #{ <<"Event-Name">> => Ev };
+event_match(M) when is_map(M) -> M.
+
+wait_event(Id, Match) -> wait_event(Id, Match, 5000).
 wait_event(Id, Match, Timeout) ->
-	gen_safe:call(Id, fun pid/1, {wait_event, Match}, Timeout).
+	gen_safe:call(Id, fun pid/1, {wait_event, event_match(Match)}, Timeout).
+
+wait_event_now(Id, Match) -> wait_event_now(Id, Match, 5000).
+wait_event_now(Id, Match, Timeout) ->
+	gen_safe:call(Id, fun pid/1, {wait_event_now, event_match(Match)}, Timeout).
 
 sync_state(Pid) when is_pid(Pid) -> Pid ! sync_state.
 
@@ -193,11 +198,15 @@ handle_call({record, Action, Path}, _From, S=#state{uuid=UUID}) -> {reply, fswit
 % just wait process to die
 handle_call({wait_hangup}, From, S=#state{wait_hangup=WaitList}) -> {noreply, S#state{wait_hangup=[From|WaitList]}};
 
-handle_call({wait_event, Match}, From, S=#state{ event_log = EvLog }) ->
+handle_call({wait_event, Match}, From, S=#state{ event_log=EvLog }) ->
 	case event_log:wait(EvLog, Match, From) of
 		no_match -> {noreply, S};
 		{match, _Ts, _} = Re -> {reply, Re, S}
 	end;
+
+handle_call({wait_event_now, Match}, From, S=#state{ event_log=EvLog }) ->
+	event_log:wait_now(EvLog, Match, From),
+	{noreply, S};
 
 handle_call(_Request, _From, S=#state{}) ->
 	lager:error("unhandled call:~p", [_Request]),

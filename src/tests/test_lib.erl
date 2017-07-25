@@ -1,7 +1,7 @@
 -module(test_lib).
 -export([
 	login/3, available/1,
-	answer/2, answer/1, ensureTalking/2, ensureTalking/3, detect_tone/2,
+	answer/2, answer/1, ensureTalking/2, ensureTalking/3, detect_tone/2, detect_tone_now/2,
 	leave_voicemail/1, leave_voicemail/2, receive_voicemail/0
 ]).
 
@@ -39,6 +39,11 @@ available(Agent) ->
 detect_tone(UUID, Tone) ->
 	call:detect_tone(UUID, Tone),
 	call:wait_event(UUID, <<"DETECTED_TONE">>),
+	call:stop_detect_tone(UUID).
+
+detect_tone_now(UUID, Tone) ->
+	call:detect_tone(UUID, Tone),
+	call:wait_event_now(UUID, <<"DETECTED_TONE">>),
 	call:stop_detect_tone(UUID).
 
 answer(Agent) -> answer(Agent, <<"ch1">>).
