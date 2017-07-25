@@ -1,8 +1,8 @@
 -module(test_lib).
 -export([
-	login/3, available/1,
+	login/3, available/1, hangup/1,
 	answer/2, answer/1, ensureTalking/2, ensureTalking/3, detect_tone/2, detect_tone_now/2,
-	leave_voicemail/1, leave_voicemail/2, receive_voicemail/0
+	leave_voicemail/1, leave_voicemail/2, receive_voicemail/0, receive_voicemail/1
 ]).
 
 leave_voicemail(Queue) ->
@@ -19,7 +19,9 @@ leave_voicemail(VmCall, call) ->
 	call:hangup(VmCall).
 
 receive_voicemail() ->
-	Agent = test_lib:available(admin:new_agent()),
+	receive_voicemail(available(admin:new_agent())).
+
+receive_voicemail(Agent) ->
 	[UUID] = agent:wait_for_call(Agent),
 	ok = call:answer(UUID),
 	agent:wait_ws(Agent, #{ <<"event">> => <<"channel_playback_update">> }),
@@ -45,6 +47,10 @@ detect_tone_now(UUID, Tone) ->
 	call:detect_tone(UUID, Tone),
 	call:wait_event_now(UUID, <<"DETECTED_TONE">>),
 	call:stop_detect_tone(UUID).
+
+hangup(UUID) ->
+	call:hangup(UUID),
+	call:wait_hangup(UUID).
 
 answer(Agent) -> answer(Agent, <<"ch1">>).
 answer(Agent, Ch) ->

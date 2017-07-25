@@ -1,7 +1,7 @@
--module(t_transfer_to_agent).
+-module(t_routing_c3510).
 -export([main/0]).
 
-% see: https://ezuce.testrail.com/index.php?/cases/view/3510
+% C3510: see: https://ezuce.testrail.com/index.php?/cases/view/3510
 
 main() ->
 	Agent1 = test_lib:available(admin:new_agent()),
