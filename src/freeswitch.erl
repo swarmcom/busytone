@@ -75,10 +75,10 @@ api(Node, Cmd, Args) ->
 			% lager:debug("fs api success:~p", [X]),
 			{ok, X};
 		{error, X} ->
-			lager:info("fs api error:~p", [X]),
+			lager:info("fs api error:~s ~s ~s", [X, Cmd, Args]),
 			{error, X}
 	after ?TIMEOUT ->
-		lager:error("fs api timeout"),
+		lager:error("fs api timeout ~s ~s", [Cmd, Args]),
 		timeout
 	end.
 
