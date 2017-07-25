@@ -54,7 +54,7 @@ handle_call(_Request, _From, S=#state{}) ->
 	lager:error("unhandled call:~p", [_Request]),
 	{reply, ok, S}.
 terminate(_Reason, _S) ->
-	lager:notice("terminate, reason:~p", [_Reason]),
+	lager:notice("terminate", []),
 	ok.
 code_change(_OldVsn, S=#state{}, _Extra) -> {ok, S}.
 

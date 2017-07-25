@@ -14,7 +14,7 @@ run(Pid, Test) -> gen_server:call(Pid, {run, Test}, infinity).
 stop(Pid) -> gen_server:stop(Pid).
 
 init([]) ->
-	lager:info("start", []),
+	lager:debug("start", []),
 	{ok, #state{}}.
 
 handle_cast(stop, S) -> {stop, normal, S};
@@ -23,10 +23,18 @@ handle_cast(_Msg, S=#state{}) -> lager:error("unhandled cast:~p", [_Msg]), {nore
 handle_info(_Info, S=#state{}) -> lager:error("unhandled info:~p", [_Info]), {noreply, S}.
 
 handle_call({run, Test}, _From, S=#state{}) ->
-	Test:main(),
-	admin:stop(),
-	{reply, ok, S};
+	try
+		Test:main(),
+		admin:stop(),
+		{reply, ok, S}
+	catch C:E ->
+		lager:error("~s error:~s", [Test, lager:pr_stacktrace(erlang:get_stacktrace(), {C,E})]),
+		admin:stop(),
+		{reply, not_ok, S}
+	end;
 
 handle_call(_Request, _From, S=#state{}) -> lager:error("unhandled call:~p", [_Request]), {reply, ok, S}.
-terminate(_Reason, _S) -> lager:info("terminate, reason:~p", [_Reason]), ok.
+
+terminate(_Reason, _S) -> lager:debug("terminate"), ok.
+
 code_change(_OldVsn, S=#state{}, _Extra) -> {ok, S}.
