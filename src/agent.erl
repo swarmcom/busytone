@@ -8,7 +8,7 @@
 	rpc/3, rpc_call/3, available/1, release/1, stop/1,
 	calls/1, wait_for_call/1, on_incoming/2,
 	wait_ws/3, wait_ws/2,
-	online/0, by_number/1
+	online/0, by_number/1, ws_debug_filter/2
 ]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
@@ -22,7 +22,8 @@
 	caller_pid,
 	ws_log,
 	wait_for_incoming,
-	incoming_call
+	incoming_call,
+	ws_debug_filter = [ <<"cpx_agent_change">>, <<"call_count_update">> ]
 }).
 
 -define(STEP, 1000).
@@ -44,6 +45,7 @@ by_number(Number) ->
 
 rpc(Id, Cmd, Args) -> gen_safe:call(Id, fun pid/1, {rpc, Cmd, Args}).
 calls(Id) -> gen_safe:call(Id, fun pid/1, calls).
+ws_debug_filter(Id, Filter) -> gen_safe:call(Id, fun pid/1, {ws_debug_filter, Filter}).
 wait_for_call(Id) -> gen_safe:call(Id, fun pid/1, wait_for_call).
 on_incoming(Id, UUID) -> gen_safe:call(Id, fun pid/1, {on_incoming, UUID}).
 stop(Id) -> gen_safe:call(Id, fun pid/1, stop).
@@ -149,6 +151,9 @@ handle_call({rpc, Cmd, Args}, _, S=#state{ reach = Pid, ws_msg_id = Id }) ->
 	gun:ws_send(Pid, {text, Text}),
 	{reply, Id, S#state{ws_msg_id = Id + 1}};
 
+handle_call({ws_debug_filter, Filter}, _From, S=#state{}) ->
+	{reply, ok, S#state{ ws_debug_filter=Filter }};
+
 handle_call(_Msg, _From, S=#state{}) ->
 	{reply, ok, S}.
 
@@ -168,8 +173,8 @@ handle_cookie(_, S) -> {noreply, S}.
 
 handle_ws_text(#{ <<"result">> := #{ <<"pong">> := _ } }, S) ->
 	{noreply, S};
-handle_ws_text(Msg, S=#state{ ws_log = WsLog }) ->
-	lager:debug("ws in, msg:~p", [Msg]),
+handle_ws_text(Msg, S=#state{ ws_log=WsLog, ws_debug_filter=Filter }) ->
+	maybe_debug(Msg, Filter),
 	case event_log:add(WsLog, Msg) of
 		{match, Caller, {Ts, Msg}} -> gen_server:reply(Caller, {match, Ts, Msg});
 		_ -> skip
@@ -186,6 +191,12 @@ maybe_notify_waiter(S=#state{wait_for_incoming=From, incoming_call=UUID}) ->
 
 to_map(H) ->
 	lists:foldl(fun({K,V}, M) -> M#{ K => V } end, #{}, H).
+
+maybe_debug(Msg = #{ <<"event">> := Event }, Filter) when is_list(Filter) ->
+	maybe_debug(Msg, Filter == [] orelse not lists:member(Event, Filter));
+maybe_debug(Msg, Filter) when is_list(Filter) -> maybe_debug(Msg, true);
+maybe_debug(_Msg, false) -> skip;
+maybe_debug(Msg, true) -> lager:debug("ws in, msg:~p", [Msg]).
 
 % connect and authenticate with reach
 % accept and manipulate incoming calls
