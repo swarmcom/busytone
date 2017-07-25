@@ -22,7 +22,7 @@ main() ->
 	test_lib:available(Agent),
 	UUID = test_lib:answer(Agent),
 	test_lib:ensureTalking(UUID, InQueueCall),
-	test_lib:hangup(UUID),
-	% agent:rpc_call(Agent, <<"end_wrapup">>, [<<"ch1">>]),
+	agent:rpc_call(Agent, <<"hangup">>, [<<"ch1">>]),
+	agent:rpc_call(Agent, <<"end_wrapup">>, [<<"ch1">>]),
 	test_lib:receive_voicemail(Agent).
 
