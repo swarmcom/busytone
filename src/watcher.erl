@@ -17,7 +17,7 @@ init({MFA, Timeout}) ->
 	{ok, #state{mfa=MFA, timeout=Timeout}}.
 
 handle_info({'EXIT', _FromPid, Reason}, S=#state{timeout=T}) ->
-	lager:info("child is dead, reason:~p:", [Reason]),
+	lager:info("child is dead, reason:~p", [Reason]),
 	start_after(T),
 	{noreply, S};
 
