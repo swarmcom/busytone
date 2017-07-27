@@ -138,7 +138,7 @@ handle_call(wait_for_call, From, S=#state{incoming_call=undefined}) ->
 handle_call(wait_for_call, _From, S=#state{incoming_call=UUID}) -> {reply, [UUID], S#state{incoming_call=undefined}};
 
 handle_call({wait_ws, Match}, From, S=#state{ ws_log = WsLog }) ->
-	case event_log:wait(WsLog, Match, From) of
+	case event_log:wait(WsLog, Match, From, 10) of
 		no_match -> {noreply, S};
 		{match, _Ts, _Msg} = Re -> {reply, Re, S}
 	end;
