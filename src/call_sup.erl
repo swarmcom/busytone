@@ -5,7 +5,7 @@
 -define(ORIGINATE_TIMEOUT, 5000).
 
 -export([
-	start_link/0, start_link/1, originate/3, originate/2, originate/1
+	start_link/0, start_link/1, originate/3, originate/2, originate/1, wait_call/0
 ]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
@@ -25,6 +25,14 @@ originate(Url, Opts) -> originate(Url, self_exten(), Opts).
 originate(Url) -> originate(Url, []).
 
 self_exten() -> io_lib:format("&erlang('~s:! ~s')", [?MODULE, node()]).
+
+wait_call() ->
+	call:subscribe(event, <<"SYNC">>),
+	receive
+		{call, _UUID, Map} -> Map
+	after
+		5000 -> erlang:error(timeout)
+	end.
 
 init([Template]) ->
 	{ok, #state{originate_map=#{}, template=Template}}.
