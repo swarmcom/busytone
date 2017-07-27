@@ -8,8 +8,8 @@ pickup(Agent, Ch, InCall) ->
 	call:wait_hangup(UUID).
 
 main() ->
-	{ok, InCall1} = call_sup:originate(<<"9999">>),
-	{ok, InCall2} = call_sup:originate(<<"9999">>),
+	{ok, InCall1} = call_sup:originate(<<"default_queue">>),
+	{ok, InCall2} = call_sup:originate(<<"default_queue">>),
 	Agent = test_lib:available(admin:new_agent()),
 	pickup(Agent, <<"ch1">>, InCall1),
 	pickup(Agent, <<"ch2">>, InCall2).
