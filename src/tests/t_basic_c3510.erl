@@ -1,12 +1,11 @@
--module(t_routing_c3510).
+-module(t_basic_c3510).
 -export([main/0]).
 
 % C3510: see: https://ezuce.testrail.com/index.php?/cases/view/3510
 
 main() ->
 	Agent1 = test_lib:available(admin:new_agent()),
-	{ok, InQueueCall} = call_sup:originate(<<"9999">>),
-	agent:wait_ws(Agent1, #{ <<"command">> => <<"setchannel">>, <<"state">> => <<"ringing">> }),
+	{ok, InQueueCall} = call_sup:originate(<<"default_queue">>),
 	UUID = test_lib:answer(Agent1),
 	test_lib:ensureTalking(InQueueCall, UUID),
 
