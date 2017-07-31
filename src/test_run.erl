@@ -20,7 +20,7 @@ init([]) ->
 handle_cast(stop, S) -> {stop, normal, S};
 handle_cast(_Msg, S=#state{}) -> lager:error("unhandled cast:~p", [_Msg]), {noreply, S}.
 
-handle_info(_Info, S=#state{}) -> lager:error("unhandled info:~p", [_Info]), {noreply, S}.
+handle_info(_Info, S=#state{}) -> lager:info("unhandled info:~p", [_Info]), {noreply, S}.
 
 handle_call({run, Test}, _From, S=#state{}) ->
 	try

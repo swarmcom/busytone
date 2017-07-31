@@ -68,18 +68,24 @@ fetch_reply(Node, FetchID, Reply) ->
 api(Node, Cmd) -> api(Node, Cmd, "").
 
 api(Node, Cmd, Args) ->
-	lager:info("fs api ~s ~s ~s", [Node, Cmd, Args]),
+	maybe_log(Node, Cmd, Args),
 	{api, Node} ! {api, Cmd, Args},
 	receive
 		{ok, X} -> 
 			{ok, X};
 		{error, X} ->
-			lager:info("fs api error ~p ~s ~s", [X, Cmd, Args]),
+			maybe_log_err(X, Cmd, Args),
 			{error, X}
 	after ?TIMEOUT ->
 		lager:error("fs api timeout ~s ~s", [Cmd, Args]),
 		timeout
 	end.
+
+maybe_log(Node, uuid_kill=Cmd, Args) -> lager:debug("fs api ~s ~s ~s", [Node, Cmd, Args]);
+maybe_log(Node, Cmd, Args) -> lager:info("fs api ~s ~s ~s", [Node, Cmd, Args]).
+maybe_log_err(X, uuid_kill=Cmd, Args) -> lager:debug("fs api error ~p ~s ~s", [X, Cmd, Args]);
+maybe_log_err(X, Cmd, Args) -> lager:info("fs api error ~p ~s ~s", [X, Cmd, Args]).
+
 
 fmt(Format, Args) -> lists:flatten(io_lib:format(Format, Args)).
 
