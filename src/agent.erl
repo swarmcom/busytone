@@ -109,18 +109,19 @@ handle_info(auth, S=#state{ reach = Pid, agent = #agent{login=Login, password=Pa
 		<<"username=", Login/binary, "&password=", Password/binary, "&remember=on">>),
 	{noreply, S#state{http_request=auth}};
 
+handle_info({'DOWN', Ref, process, _Pid, _Reason}, S=#state{ incoming_call={Ref, _UUID} }) ->
+	{noreply, S#state{incoming_call=undefined}};
 handle_info({'DOWN', _Ref, process, Pid, _Reason}, S=#state{ reach=Pid }) ->
 	lager:info("reach connection is dead, pid:~p reason:~p", [Pid, _Reason]),
 	{stop, normal, S};
+handle_info({'DOWN', _Ref, process, Pid, _Reason}, S=#state{agent=#agent{login=Agent}}) ->
+	lager:debug("incoming call is down, agent:~s pid:~p", [Agent, Pid]),
+	{noreply, S};
 
 handle_info({call, UUID, #{ <<"Caller-Destination-Number">> := Number, <<"Caller-Logical-Direction">> := <<"inbound">> }}, S=#state{ agent=#agent{ number = Number }}) ->
-	call:link_process(UUID, self()),
-	call:subscribe(uuid, UUID),
 	handle_incoming_call(UUID, S);
 handle_info({call, _, _}, S=#state{}) -> {noreply, S};
 
-handle_info({call, <<"CHANNEL_HANGUP">>}, S=#state{}) ->
-	{noreply, S#state{incoming_call=undefined}};
 handle_info({call, _}, S=#state{}) -> {noreply, S};
 
 handle_info({'EXIT', Pid, _}, S=#state{caller_pid=Pid}) ->
@@ -131,11 +132,12 @@ handle_info(_Info, S=#state{}) ->
 	{noreply, S}.
 
 handle_call(calls, _From, S=#state{incoming_call=undefined}) -> {reply, [], S};
-handle_call(calls, _From, S=#state{incoming_call=UUID}) -> {reply, [UUID], S};
+handle_call(calls, _From, S=#state{incoming_call={_Ref, UUID}}) -> {reply, [UUID], S};
 
 handle_call(wait_for_call, From, S=#state{incoming_call=undefined}) ->
 	{noreply, S#state{ wait_for_incoming=From }};
-handle_call(wait_for_call, _From, S=#state{incoming_call=UUID}) -> {reply, [UUID], S#state{incoming_call=undefined}};
+handle_call(wait_for_call, _From, S=#state{incoming_call={_Ref, UUID}}) ->
+	{reply, [UUID], S#state{wait_for_incoming=undefined, incoming_call=undefined}};
 
 handle_call({wait_ws, Match}, From, S=#state{ ws_log = WsLog }) ->
 	case event_log:wait(WsLog, Match, From, 10) of
@@ -182,12 +184,14 @@ handle_ws_text(Msg, S=#state{ ws_log=WsLog, ws_debug_filter=Filter }) ->
 	{noreply, S}.
 
 handle_incoming_call(UUID, S=#state{}) ->
-	{noreply, maybe_notify_waiter(S#state{incoming_call=UUID})}.
+	Ref = erlang:monitor(process, call:link_process(UUID, self())),
+	call:subscribe(uuid, UUID),
+	{noreply, maybe_notify_waiter(S#state{incoming_call={Ref, UUID}})}.
 
 maybe_notify_waiter(S=#state{wait_for_incoming=undefined}) -> S;
-maybe_notify_waiter(S=#state{wait_for_incoming=From, incoming_call=UUID}) ->
+maybe_notify_waiter(S=#state{wait_for_incoming=From, incoming_call={_Ref, UUID}}) ->
 	gen_server:reply(From, [UUID]),
-	S.
+	S#state{wait_for_incoming=undefined, incoming_call=undefined}.
 
 to_map(H) ->
 	lists:foldl(fun({K,V}, M) -> M#{ K => V } end, #{}, H).

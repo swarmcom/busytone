@@ -62,7 +62,7 @@ broadcast(Id, Path) -> gen_safe:cast(Id, fun pid/1, {broadcast, Path}).
 displace(Id, Cmd, Path) -> gen_safe:cast(Id, fun pid/1, {displace, Cmd, Path}).
 execute(Id, Cmd, Args) -> gen_safe:cast(Id, fun pid/1, {execute, Cmd, Args}).
 
-link_process(Id, Pid) -> gen_safe:cast(Id, fun pid/1, {link_process, Pid}).
+link_process(Id, Pid) -> gen_safe:call(Id, fun pid/1, {link_process, Pid}).
 command(Id, Command, Args) -> gen_safe:cast(Id, fun pid/1, {command, Command, Args}).
 
 wait_hangup(Id) -> gen_safe:call(Id, fun pid/1, {wait_hangup}).
@@ -106,9 +106,6 @@ init([UUID]) ->
 handle_cast(answer, S=#state{uuid=UUID}) -> fswitch:api("uuid_answer ~s", [UUID]), {noreply, S};
 handle_cast(park, S=#state{uuid=UUID}) -> fswitch:api("uuid_park ~s", [UUID]), {noreply, S};
 handle_cast(break, S=#state{uuid=UUID}) -> fswitch:api("uuid_break ~s", [UUID]), {noreply, S};
-handle_cast({link_process, Pid}, S=#state{}) ->
-	erlang:monitor(process, Pid),
-	{noreply, S};
 handle_cast(alive, S=#state{uuid=UUID}) ->
 	{ok, "true"} = fswitch:api("uuid_exists ~s", [UUID]),
 	{noreply, S};
@@ -178,6 +175,10 @@ handle_info({'DOWN', _Ref, process, _Pid, _Reason}, S=#state{}) ->
 handle_info(_Info, S=#state{}) ->
 	lager:error("unhandled info:~p", [_Info]),
 	{noreply, S}.
+
+handle_call({link_process, Pid}, _From, S=#state{}) ->
+	erlang:monitor(process, Pid),
+	{reply, self(), S};
 
 handle_call(vars, _From, S=#state{vars = Vars}) -> {reply, Vars, S};
 handle_call(variables, _From, S=#state{variables = Variables}) -> {reply, Variables, S};

@@ -11,6 +11,7 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
 -record(state, {
+	seq = 1,
 	template,
 	originate_map
 }).
@@ -76,14 +77,14 @@ handle_cast(_Msg, S=#state{}) ->
 	lager:error("unhandled cast:~p", [_Msg]),
 	{noreply, S}.
 
-handle_call({originate, OwnerPid, Timeout, URL, Exten, Opts}, From, S=#state{originate_map=M, template=T}) ->
-	case fswitch:api("originate ~s~s ~s", [stringify_opts(Opts), template(T, URL), Exten]) of
+handle_call({originate, OwnerPid, Timeout, URL, Exten, Opts}, From, S=#state{seq=Seq, originate_map=M, template=T}) ->
+	case fswitch:api("originate ~s~s ~s", [stringify_opts(with_clid(Opts, Seq)), template(T, URL), Exten]) of
 		{ok, "+OK "++UUID} ->
 			UUID1 = erlang:list_to_binary(trim(UUID)),
 			timer:send_after(Timeout+1000, {originate_cleanup, UUID1, From}), 
-			{noreply, S#state{ originate_map = M#{ UUID1 => {OwnerPid, From} }}};
+			{noreply, S#state{ seq=Seq+1, originate_map = M#{ UUID1 => {OwnerPid, From} }}};
 		_Err ->
-			{reply, _Err, S}
+			{reply, _Err, S#state{ seq=Seq+1 }}
 	end;
 
 handle_call(_Request, _From, S=#state{}) ->
@@ -97,6 +98,12 @@ terminate(_Reason, _S) ->
 code_change(_OldVsn, S=#state{}, _Extra) -> {ok, S}.
 
 trim(Str) -> string:left(Str, erlang:length(Str)-1).
+
+with_clid(Opts, Seq) -> Opts ++ [
+	{origination_uuid, io_lib:format("bs_uuid_~p", [Seq])},
+	{origination_caller_id_number, io_lib:format("bs_caller_number_~p", [Seq])},
+	{origination_caller_id_name, io_lib:format("bs_caller_name_~p", [Seq])}
+].
 
 stringify_opts([]) -> "";
 stringify_opts(Opts) when is_list(Opts) ->

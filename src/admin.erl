@@ -40,6 +40,7 @@ stop() -> gen_server:cast(?MODULE, {stop}).
 init([{Login, Pass}=_A]) ->
 	lager:info("start, admin:~p", [_A]),
 	Admin = test_lib:login(Login, Pass, Login),
+	agent:rpc_call(Admin, <<"ouc_rpc_adm.reset">>, []),
 	{ok, #state{user=Admin}}.
 
 handle_cast({stop}, S=#state{}) ->
