@@ -47,7 +47,7 @@ handle_call({run, Test}, _From, S=#state{}) ->
 handle_call({run}, _From, S=#state{}) ->
 	AllMods = [ erlang:atom_to_list(Module) || {Module, _} <- code:all_loaded() ],
 	TestMods = [ erlang:list_to_atom(Module) || Module <- AllMods, is_test(Module) ],
-	[ run_test(Test) || Test <- TestMods ],
+	notice(), [ run_test(Test) || Test <- shuffle(TestMods) ], info(),
 	{reply, ok, S};
 
 handle_call(_Request, _From, S=#state{}) ->
@@ -60,10 +60,17 @@ code_change(_OldVsn, S=#state{}, _Extra) -> {ok, S}.
 
 run_test(Test) ->
 	{ok, Pid} = test_run:start_link(),
-	lager:notice("start test:~p", [Test]),
+	lager:notice("~p is running...", [Test]),
 	Re = test_run:run(Pid, Test),
-	lager:notice("test:~p result:~p", [Test, Re]),
-	test_run:stop(Pid).
+	log_result(Test, Re),
+	test_run:stop(Pid),
+	timer:sleep(500).
+
+shuffle(L) ->
+	[ X || {_, X} <- lists:sort([ {rand:uniform(), N} || N <- L]) ].
+
+log_result(Test, ok) -> lager:notice("~p ok", [Test]);
+log_result(Test, not_ok) -> lager:error("~p not_ok", [Test]).
 
 is_test("t_"++_) -> true;
 is_test(_) -> false.
