@@ -122,9 +122,14 @@ handle_call(_Request, _From, S=#state{}) ->
 
 terminate(_Reason, _S=#state{user=Admin, watch=W}) ->
 	lager:info("terminate, reason:~p", [_Reason]),
+	[ hangup(UUID) || UUID <- call:active() ],
 	[ delete(Admin, Value) || Value <- maps:values(W) ],
 	ok.
 code_change(_OldVsn, S=#state{}, _Extra) -> {ok, S}.
+
+hangup(UUID) ->
+	call:hangup(UUID),
+	call:wait_hangup(UUID).
 
 delete(Admin, {group, Group}) -> <<"ok">> = agent:rpc_call(Admin, <<"ouc_rpc_adm.delete_group">>, [Group]);
 delete(Admin, {queue, Queue}) -> <<"ok">> = agent:rpc_call(Admin, <<"ouc_rpc_adm.delete_queue">>, [Queue]);

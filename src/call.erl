@@ -163,10 +163,7 @@ handle_info({call_hangup, UUID}, S=#state{uuid=UUID}) ->
 	{stop, normal, S};
 
 handle_info(sync_state, S=#state{uuid=UUID}) ->
-	{ok, Dump} = fswitch:api("uuid_dump ~s", [UUID]),
-	Pairs = fswitch:parse_uuid_dump_string(Dump),
-	{Vars, Variables} = fswitch:parse_uuid_dump(Pairs),
-	handle_event(Vars#{ <<"Event-Name">> => <<"SYNC">> }, Variables, S);
+	maybe_sync_state(fswitch:api("uuid_dump ~s", [UUID]), S);
 
 handle_info({'DOWN', _Ref, process, _Pid, _Reason}, S=#state{}) ->
 	lager:info("owner is dead, pid:~p reason:~p", [_Pid, _Reason]),
@@ -242,3 +239,12 @@ maybe_debug(<<"SYNC">>=Ev, UUID, Vars) ->
 	lager:info("ev:~s uuid:~s ~p", [Ev, UUID, maps:get(<<"Caller-Destination-Number">>, Vars, undefined)]);
 maybe_debug(Ev, UUID, Vars) ->
 	lager:debug("ev:~s uuid:~s ~p", [Ev, UUID, maps:get(<<"Caller-Destination-Number">>, Vars, undefined)]).
+
+maybe_sync_state({ok, Dump}, S) ->
+	Pairs = fswitch:parse_uuid_dump_string(Dump),
+	{Vars, Variables} = fswitch:parse_uuid_dump(Pairs),
+	handle_event(Vars#{ <<"Event-Name">> => <<"SYNC">> }, Variables, S);
+maybe_sync_state(_Err, S) ->
+	lager:info("fs channel is dead already"),
+	{stop, normal, S}.
+

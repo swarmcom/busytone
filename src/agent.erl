@@ -68,7 +68,7 @@ init([Pid, Host, Port, A=#agent{}]) ->
 	{ok, State} = init([Host, Port, A]),
 	{ok, State#state{caller_pid=Pid}};
 init([Host, Port, A=#agent{login=Login}]) ->
-	lager:info("start agent, login:~p", [Login]),
+	lager:info("start, login:~p", [Login]),
 	{ok, Reach} = gun:open(Host, Port),
 	monitor(process, Reach),
 	gproc:reg({n, l, {?MODULE, Login}}, A),
@@ -123,6 +123,9 @@ handle_info({call, UUID, #{ <<"Caller-Destination-Number">> := Number, <<"Caller
 handle_info({call, _, _}, S=#state{}) -> {noreply, S};
 
 handle_info({call, _}, S=#state{}) -> {noreply, S};
+
+handle_info({gun_ws, _Pid, {close, _, _}}, S) ->
+	{stop, normal, S};
 
 handle_info({'EXIT', Pid, _}, S=#state{caller_pid=Pid}) ->
 	{stop, normal, S};
