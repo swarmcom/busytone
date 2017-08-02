@@ -1,6 +1,8 @@
 -module(t_rpc_adm).
 -export([main/0]).
 
+% test admin rpc: create an agent and a profile, fetch them and check their names
+
 main() ->
 	Profile = admin:new_profile(),
 	Login = admin:new_agent(#{ profile => Profile }),

@@ -2,8 +2,15 @@
 -export([
 	login/3, available/1, hangup/1,
 	answer/2, answer/1, ensureTalking/2, ensureTalking/3, detect_tone/2, detect_tone_now/2,
-	leave_voicemail/1, leave_voicemail/2, receive_voicemail/0, receive_voicemail/1
+	leave_voicemail/1, leave_voicemail/2, receive_voicemail/0, receive_voicemail/1, vqueue_init/1
 ]).
+
+% utility functions to automate tests
+
+vqueue_init(Queue) ->
+	{ok, UUID} = call_sup:originate(Queue),
+	hangup(UUID),
+	Queue.
 
 leave_voicemail(Queue) ->
 	{ok, VmCall} = call_sup:originate(Queue),

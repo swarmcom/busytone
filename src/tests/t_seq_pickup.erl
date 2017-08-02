@@ -1,6 +1,8 @@
 -module(t_seq_pickup).
 -export([main/0]).
 
+% test sequential pickup: and agent should be able to sequentially pickup calls in order they get into a queue
+
 pickup(Agent, Ch, InCall) ->
 	UUID = test_lib:answer(Agent, Ch),
 	test_lib:ensureTalking(UUID, InCall),

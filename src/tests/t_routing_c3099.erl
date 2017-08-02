@@ -8,6 +8,9 @@ main() ->
 	Queue1 = admin:new_queue(#{ wrapup_enabled => false, recipe => [], skills => #{ english => true } }),
 	Queue2 = admin:new_queue(#{ wrapup_enabled => false, recipe => [], skills => #{ german => true } }),
 
+	test_lib:vqueue_init(Queue1), % XXX: wtf?
+	test_lib:vqueue_init(Queue2), % XXX: wtf?
+
 	Agent1 = test_lib:available(admin:new_agent(#{ skills => #{ english => true } })),
 	Agent2 = test_lib:available(admin:new_agent(#{ skills => #{ german => true } })),
 

@@ -1,6 +1,8 @@
 -module(t_transfer_to_same_queue).
 -export([main/0]).
 
+% test an agent recieve a call back just after transferring call to the same queue
+
 main() ->
 	Queue = admin:new_queue(#{
 		skills => #{ english => true },

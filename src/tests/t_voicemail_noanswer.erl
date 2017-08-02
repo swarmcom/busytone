@@ -1,6 +1,8 @@
 -module(t_voicemail_noanswer).
 -export([main/0]).
 
+% test an agent gets voicemail twice (first one is not answered)
+
 main() ->
 	Queue = admin:new_queue(#{
 		recipe => [ #{

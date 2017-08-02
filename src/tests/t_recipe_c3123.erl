@@ -5,6 +5,7 @@
 
 main() ->
 	Queue = admin:new_queue(#{
+		wrapup_enabled => false,
 		skills => #{ english => true, german => true },
 		recipe => [ #{
 			conditions => [ [eligible_agents, '<', 1], [type, '=', voice] ],
@@ -23,6 +24,5 @@ main() ->
 	UUID = test_lib:answer(Agent),
 	test_lib:ensureTalking(UUID, InQueueCall),
 	agent:rpc_call(Agent, <<"hangup">>, [<<"ch1">>]),
-	agent:rpc_call(Agent, <<"end_wrapup">>, [<<"ch1">>]),
 	test_lib:receive_voicemail(Agent).
 

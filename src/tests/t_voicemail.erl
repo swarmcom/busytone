@@ -1,6 +1,8 @@
 -module(t_voicemail).
 -export([main/0]).
 
+% leave a voicemail, and an logged-in agent gets it
+
 main() ->
 	Queue = admin:new_queue(#{
 		recipe => [ #{

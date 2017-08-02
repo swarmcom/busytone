@@ -1,12 +1,11 @@
 -module(t_simple).
 -export([main/0]).
 
+% test an agent can login and receive calls from default queue
+
 main() ->
-	Agent = admin:new_agent(),
-	agent:wait_ws(Agent, #{ <<"username">> => Agent }),
-	agent:available(Agent),
+	Agent = test_lib:available(admin:new_agent()),
 	agent:wait_ws(Agent, #{ <<"command">> => <<"arelease">>, <<"releaseData">> => false }),
-	{ok, InQueueCall} = call_sup:originate(<<"9999">>),
-	agent:wait_ws(Agent, #{ <<"command">> => <<"setchannel">>, <<"state">> => <<"ringing">> }),
+	{ok, InQueueCall} = call_sup:originate(<<"non_existent_queue">>),
 	UUID = test_lib:answer(Agent),
 	test_lib:ensureTalking(InQueueCall, UUID).

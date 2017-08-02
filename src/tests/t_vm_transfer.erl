@@ -1,6 +1,8 @@
 -module(t_vm_transfer).
 -export([main/0]).
 
+% test an agent can transfer a voicemail call back to the queue
+
 main() ->
 	Queue = admin:new_queue(#{
 		recipe => [ #{
@@ -10,6 +12,7 @@ main() ->
 			comment => <<"test">>
 		}]
 	}),
+	test_lib:vqueue_init(Queue), % XXX: wtf?
 	test_lib:leave_voicemail(Queue),
 
 	Agent = test_lib:available(admin:new_agent()),

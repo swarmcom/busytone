@@ -15,7 +15,6 @@ main() ->
 	}),
 
 	{ok, InQueueCall} = call_sup:originate(Queue),
-	call:record(InQueueCall, start, "/tmp/record.wav"),
 	test_lib:detect_tone(InQueueCall, <<"2600">>),
 	timer:sleep(500), % wait signal to complete
 	test_lib:detect_tone_now(InQueueCall, <<"2600">>).
