@@ -10,7 +10,7 @@
 	execute/3, tone_detect/4, detect_tone/2, stop_detect_tone/1,
 	transfer/2, transfer/3, transfer/4, record/3, command/3,
 	wait_event/2, wait_event/3, wait_event_now/2, wait_event_now/3,
-	active/0, match_for/1
+	active/0, match_for/1, notify_uuid/2, hupall/0, answer/0
 ]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
@@ -27,6 +27,9 @@
 active() ->
 	Q = qlc:q([ UUID || {{n,l,{?MODULE,UUID}}, _Pid, _} <- gproc:table({l, n}) ]),
 	qlc:e(Q).
+
+hupall() -> [ hangup(UUID) || UUID <- active() ].
+answer() -> [ answer(UUID) || UUID <- active() ].
 
 match_for(Map) when is_map(Map) ->
 	Q = qlc:q([ UUID || {{n,l,{?MODULE,UUID}}, _Pid, M} <- gproc:table({l, n}), util:match_maps(Map, M) ]),
@@ -220,7 +223,7 @@ code_change(_OldVsn, S=#state{}, _Extra) -> {ok, S}.
 
 handle_event(Vars = #{ <<"Event-Name">> := Ev }, Variables, S=#state{uuid=UUID, event_log=EvLog}) ->
 	maybe_debug(Ev, UUID, Vars),
-	gproc:send({p, l, {?MODULE, uuid, UUID}}, {?MODULE, Ev}),
+	notify_uuid(UUID, Ev),
 	gproc:send({p, l, {?MODULE, event, Ev}}, {?MODULE, UUID, Vars}),
 	gproc:set_value({n, l, {?MODULE, UUID}}, Vars),
 	case event_log:add(EvLog, Vars) of
@@ -228,6 +231,8 @@ handle_event(Vars = #{ <<"Event-Name">> := Ev }, Variables, S=#state{uuid=UUID, 
 		_ -> skip
 	end,
 	{noreply, set_call_state(maybe_set_vairables(Variables, S#state{vars=Vars}))}.
+
+notify_uuid(UUID, Ev) -> gproc:send({p, l, {?MODULE, uuid, UUID}}, {?MODULE, UUID, Ev}).
 
 set_call_state(S=#state{ vars = #{ <<"Channel-Call-State">> := State } }) -> S#state{ call_state = State };
 set_call_state(S) -> S.
@@ -247,4 +252,3 @@ maybe_sync_state({ok, Dump}, S) ->
 maybe_sync_state(_Err, S) ->
 	lager:info("fs channel is dead already"),
 	{stop, normal, S}.
-

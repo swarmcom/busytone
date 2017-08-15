@@ -1,7 +1,7 @@
 -module(test_lib).
 -export([
 	login/3, available/1, hangup/1,
-	answer/2, answer/1, ensureTalking/2, ensureTalking/3, detect_tone/2, detect_tone_now/2,
+	answer/1, ensureTalking/2, ensureTalking/3, detect_tone/2, detect_tone_now/2,
 	leave_voicemail/1, leave_voicemail/2, receive_voicemail/0, receive_voicemail/1, vqueue_init/1
 ]).
 
@@ -59,12 +59,11 @@ hangup(UUID) ->
 	call:hangup(UUID),
 	call:wait_hangup(UUID).
 
-answer(Agent) -> answer(Agent, <<"ch1">>).
-answer(Agent, Ch) ->
+answer(Agent) ->
 	[UUID] = agent:wait_for_call(Agent),
 	ok = call:answer(UUID),
 	call:wait_event(UUID, #{ <<"Event-Name">> => <<"CHANNEL_ANSWER">> }),
-	agent:wait_ws(Agent, #{ <<"command">> => <<"setchannel">>, <<"state">> => <<"oncall">>, <<"channelid">> => Ch }),
+	agent:wait_ws(Agent, #{ <<"command">> => <<"setchannel">>, <<"state">> => <<"oncall">> }),
 	UUID.
 
 ensureTalking(UUID1, UUID2) -> ensureTalking(UUID1, UUID2, 5000).

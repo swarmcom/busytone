@@ -7,8 +7,8 @@ main() ->
 	agent:available(Agent),
 	agent:wait_ws(Agent, #{ <<"command">> => <<"arelease">>, <<"releaseData">> => false }),
 	{ok, InQueueCall} = call_sup:originate(<<"9999">>),
-	agent:wait_ws(Agent, #{ <<"command">> => <<"setchannel">>, <<"state">> => <<"ringing">>, <<"channelid">> => <<"ch1">> }),
+	agent:wait_ws(Agent, #{ <<"command">> => <<"setchannel">>, <<"state">> => <<"ringing">> }),
 	[UUID1] = agent:wait_for_call(Agent),
 	call:wait_hangup(UUID1),
-	UUID = test_lib:answer(Agent, <<"ch2">>),
+	UUID = test_lib:answer(Agent),
 	test_lib:ensureTalking(InQueueCall, UUID).

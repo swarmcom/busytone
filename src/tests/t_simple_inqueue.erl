@@ -4,10 +4,8 @@
 % test an agent recieve a call from default queue right after became available
 
 main() ->
-	call_sup:originate(<<"non_existent_queue">>),
-	Agent = admin:new_agent(),
-	agent:wait_ws(Agent, #{ <<"username">> => Agent }),
-	agent:available(Agent),
+	{ok, InQueueCall} = call_sup:originate(<<"non_existent_queue">>),
+	Agent = test_lib:available(admin:new_agent()),
 	agent:wait_ws(Agent, #{ <<"command">> => <<"arelease">>, <<"releaseData">> => false }),
-	agent:wait_ws(Agent, #{ <<"command">> => <<"setchannel">>, <<"state">> => <<"ringing">> }),
-	test_lib:answer(Agent).
+	UUID = test_lib:answer(Agent),
+	test_lib:ensureTalking(InQueueCall, UUID).

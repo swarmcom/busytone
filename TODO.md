@@ -3,17 +3,16 @@ BusyTone TODO
 
 ## On
 
-1. Fix failing tests
-2. Fix errors in Reach
+1. Automate channel counter on agent answer?
+2. when a call is hung up, the client get notification message (endchannel) with next-channel?
 
 ## Other
-
-1. Add recipe tests
-2. Add and distinguish Queues
 
 Done
 ====
 
+1. Add recipe tests
+2. Add and distinguish Queues
 2. Use sys.config param to place calls to Reach by numbers only
 1. fs_sync should be able to compile newly added modules
 1. In order to conduct tests there should be a way to alter (add/remove) agent/queues/skills properties dynamically

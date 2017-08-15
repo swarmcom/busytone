@@ -13,10 +13,10 @@ main() ->
 
 	Agent = test_lib:available(admin:new_agent( #{ skills => #{ english => true } })),
 	{ok, _} = call_sup:originate(Queue),
-	test_lib:answer(Agent, <<"ch1">>),
+	UUID = test_lib:answer(Agent),
 	agent:wait_ws(Agent, #{ <<"command">> => <<"mediaevent">>, <<"event">> => <<"caller_offhold">> }),
-	agent:rpc_call(Agent, <<"hangup">>, [<<"ch1">>]),
+	agent:rpc_call(Agent, <<"hangup">>, [UUID]),
 	{match, _, #{ <<"statedata">> := #{ <<"time_limit">> := 1000 }}}
 		= agent:wait_ws(Agent, #{ <<"command">> => <<"setchannel">>,<<"state">> => <<"wrapup">> }),
-	agent:rpc_call(Agent, <<"end_wrapup">>, [<<"ch1">>]),
+	agent:rpc_call(Agent, <<"end_wrapup">>, [UUID]),
 	agent:wait_ws(Agent, #{ <<"command">> => <<"endchannel">> }).
