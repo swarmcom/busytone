@@ -6,7 +6,7 @@
 	get_profile/1, new_profile/0, new_profile/1, update_profile/2,
 	new_queue/0, new_queue/1, get_queue/1, update_queue/2,
 	new_group/0, new_group/1, get_group/1, update_group/2,
-	rpc_call/2,
+	rpc_call/2, call/2,
 	stop/0]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
@@ -34,6 +34,10 @@ update_queue(Name, Props) -> gen_server:call(?MODULE, {update_queue, Name, Props
 update_group(Name, Props) -> gen_server:call(?MODULE, {update_group, Name, Props}).
 
 rpc_call(Cmd, Args) -> gen_server:call(?MODULE, {rpc_call, Cmd, Args}).
+call(Cmd, Args) -> gen_server:call(?MODULE, {rpc_call, <<"ouc_rpc_adm.",(a2b(Cmd))/binary>>, Args}).
+
+a2b(A) when is_atom(A) -> erlang:atom_to_binary(A, utf8);
+a2b(B) when is_binary(B) -> B.
 
 stop() -> gen_server:cast(?MODULE, {stop}).
 

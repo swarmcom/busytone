@@ -1,7 +1,7 @@
 -module(test_sup).
 -behaviour(gen_server).
 
--export([start_link/0, run/0, run/1, info/0, debug/0, notice/0, set_loglevel/1]).
+-export([start_link/0, run/0, run/1, runs/1, info/0, debug/0, notice/0, set_loglevel/1]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
@@ -18,6 +18,7 @@ start_link() ->
 	gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
 run(Test) -> gen_server:call(?MODULE, {run, Test}, infinity).
+runs(Prefix) -> gen_server:call(?MODULE, {runs, Prefix}, infinity).
 run() -> gen_server:call(?MODULE, {run}, infinity).
 
 init([]) ->
@@ -50,6 +51,13 @@ handle_call({run}, _From, S=#state{}) ->
 	notice(), [ run_test(Test) || Test <- shuffle(TestMods) ], info(),
 	{reply, ok, S};
 
+handle_call({runs, Pfx}, _From, S=#state{}) ->
+	AllMods = [ erlang:atom_to_list(Module) || {Module, _} <- code:all_loaded() ],
+	Prefix = erlang:atom_to_list(Pfx),
+	TestMods = [ erlang:list_to_atom(Module) || Module <- AllMods, is_test(Module, Prefix) ],
+	notice(), [ run_test(Test) || Test <- TestMods ], info(),
+	{reply, ok, S};
+
 handle_call(_Request, _From, S=#state{}) ->
 	lager:error("unhandled call:~p", [_Request]),
 	{reply, ok, S}.
@@ -74,3 +82,5 @@ log_result(Test, not_ok) -> lager:error("~p not_ok", [Test]).
 
 is_test("t_"++_) -> true;
 is_test(_) -> false.
+
+is_test(Name, Prefix) -> lists:prefix(Prefix, Name).

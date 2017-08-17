@@ -1,6 +1,6 @@
 -module(test_lib).
 -export([
-	login/3, available/1, hangup/1,
+	login/3, available/0, available/1, release/1, hangup/1,
 	answer/1, ensureTalking/2, ensureTalking/3, detect_tone/2, detect_tone_now/2,
 	leave_voicemail/1, leave_voicemail/2, receive_voicemail/0, receive_voicemail/1, vqueue_init/1
 ]).
@@ -40,9 +40,16 @@ login(Login, Password, Number) ->
 	agent:wait_ws(Agent, #{ <<"username">> => Agent }),
 	Agent.
 
+available() -> available(admin:new_agent()).
+
 available(Agent) ->
 	agent:available(Agent),
 	agent:wait_ws(Agent, #{ <<"command">> => <<"arelease">>, <<"releaseData">> => false }),
+	Agent.
+
+release(Agent) ->
+	agent:release(Agent),
+	agent:wait_ws(Agent, #{ <<"command">> => <<"arelease">> }),
 	Agent.
 
 detect_tone(UUID, Tone) ->
