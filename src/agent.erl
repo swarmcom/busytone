@@ -7,7 +7,7 @@
 	start_link/3, start/3, start/4, pid/1,
 	rpc/3, rpc_call/3, available/1, release/1, stop/1,
 	calls/1, wait_for_call/1, on_incoming/2,
-	wait_ws/3, wait_ws/2,
+	wait_ws/4, wait_ws/3, wait_ws/2, wait_ev/3,
 	online/0, by_number/1, ws_debug_filter/2
 ]).
 
@@ -57,9 +57,12 @@ start(Host, Port, A=#agent{}) -> gen_server:start(?MODULE, [Host, Port, A], []).
 start(Pid, Host, Port, A=#agent{}) -> gen_server:start(?MODULE, [Pid, Host, Port, A], []).
 
 % use call timeout as a failsafe
-wait_ws(Id, Match) -> wait_ws(Id, Match, 5000).
-wait_ws(Id, Match, Timeout) ->
-	gen_safe:call(Id, fun pid/1, {wait_ws, Match}, Timeout).
+wait_ws(Id, Match) -> wait_ws(Id, Match, 10).
+wait_ws(Id, Match, Depth) -> wait_ws(Id, Match, Depth, 5000).
+wait_ws(Id, Match, Depth, Timeout) ->
+	gen_safe:call(Id, fun pid/1, {wait_ws, Match, Depth}, Timeout).
+
+wait_ev(Id, UUID, Ev) -> wait_ws(Id, #{<<"event">> => Ev, <<"uuid">> => UUID }, 100).
 
 % this clause is to link with caller process of fun call_sup:originate
 init([Pid, Host, Port, A=#agent{}]) ->
@@ -142,8 +145,8 @@ handle_call(wait_for_call, From, S=#state{incoming_call=undefined}) ->
 handle_call(wait_for_call, _From, S=#state{incoming_call={_Ref, UUID}}) ->
 	{reply, [UUID], S#state{wait_for_incoming=undefined, incoming_call=undefined}};
 
-handle_call({wait_ws, Match}, From, S=#state{ ws_log = WsLog }) ->
-	case event_log:wait(WsLog, Match, From, 10) of
+handle_call({wait_ws, Match, Depth}, From, S=#state{ ws_log = WsLog }) ->
+	case event_log:wait(WsLog, Match, From, Depth) of
 		no_match -> {noreply, S};
 		{match, _Ts, _Msg} = Re -> {reply, Re, S}
 	end;
