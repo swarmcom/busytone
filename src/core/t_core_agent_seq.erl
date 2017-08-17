@@ -11,4 +11,5 @@ main() ->
 
 	test_lib:release(A),
 	test_lib:available(A),
+	timer:sleep(100),
 	[#{ <<"id">> := B }, #{ <<"id">> := C }, #{ <<"id">> := A } ] = admin:call(agents, []).
