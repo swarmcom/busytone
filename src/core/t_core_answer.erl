@@ -1,7 +1,15 @@
 -module(t_core_answer).
 -export([main/0]).
 
-% check call is answered by agent, and hangup works for both legs
+main() ->
+	lager:notice("check call is answered by agent, and hangup works for both legs"),
+	A = test_lib:available(),
+	test_hup_a(A),
+	test_lib:release(A),
+
+	B = test_lib:available(),
+	test_hup_b(B),
+	[#{ <<"state">> := <<"available">> }] = admin:call(agents, []).
 
 setup_talk(A) ->
 	{ok, LegA} = call_sup:originate(<<"default_queue">>),
@@ -26,14 +34,3 @@ test_hup_b(A) ->
 	agent:wait_ev(A, LegB, <<"CHANNEL_HANGUP">>),
 	agent:wait_ev(A, LegA, <<"CHANNEL_HANGUP">>),
 	[] = admin:call(inqueues, [oncall]).
-
-main() ->
-	A = test_lib:available(),
-	test_hup_a(A),
-	test_lib:release(A),
-
-	B = test_lib:available(),
-	test_hup_b(B),
-	[#{ <<"state">> := <<"available">> }] = admin:call(agents, []).
-
-

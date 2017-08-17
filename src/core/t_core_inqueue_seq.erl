@@ -8,4 +8,4 @@ main() ->
 	{ok, B} = call_sup:originate(<<"default_queue">>),
 	{ok, C} = call_sup:originate(<<"default_queue">>),
 
-	[#{ <<"id">> := A }, #{ <<"id">> := B }, #{ <<"id">> := C } ] = admin:call(inqueues, []).
+	[#{ <<"uuid">> := A }, #{ <<"uuid">> := B }, #{ <<"uuid">> := C } ] = admin:call(inqueues, []).
