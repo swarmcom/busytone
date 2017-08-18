@@ -25,11 +25,9 @@ handle_info(_Info, S=#state{}) -> lager:info("unhandled info:~p", [_Info]), {nor
 handle_call({run, Test}, _From, S=#state{}) ->
 	try
 		Test:main(),
-		admin:reset(),
 		{reply, ok, S}
 	catch C:E ->
 		lager:error("~s error:~s", [Test, lager:pr_stacktrace(erlang:get_stacktrace(), {C,E})]),
-		admin:stop(),
 		{reply, not_ok, S}
 	end;
 
