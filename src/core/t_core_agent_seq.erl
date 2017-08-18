@@ -3,7 +3,7 @@
 -import(ts_core, [wait/1]).
 
 main() ->
-	lager:notice("check agents are sorted by longest available state"),
+	lager:notice("check agents are sorted by longest time in available state"),
 	A = test_lib:available(),
 	B = test_lib:available(),
 	C = test_lib:available(),
