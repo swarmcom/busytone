@@ -7,7 +7,7 @@
 	new_queue/0, new_queue/1, get_queue/1, update_queue/2,
 	new_group/0, new_group/1, get_group/1, update_group/2,
 	rpc_call/2, call/2, wait_ws/1,
-	stop/0]).
+	stop/0, reset/0]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
@@ -41,6 +41,7 @@ a2b(A) when is_atom(A) -> erlang:atom_to_binary(A, utf8);
 a2b(B) when is_binary(B) -> B.
 
 stop() -> gen_server:cast(?MODULE, {stop}).
+reset() -> gen_server:call(?MODULE, {reset}).
 
 init([{Login, Pass}=_A]) ->
 	lager:info("start, admin:~p", [_A]),
@@ -56,7 +57,7 @@ handle_cast(_Msg, S=#state{}) ->
 	{noreply, S}.
 
 handle_info({'DOWN', Ref, process, _Pid, _Reason}, S=#state{user=Admin, watch=W}) ->
-	delete(Admin, maps:get(Ref, W)),
+	delete(Admin, maps:get(Ref, W, undefined)),
 	{noreply, S#state{watch=maps:remove(Ref, W)}};
 
 handle_info(_Info, S=#state{}) ->
@@ -125,22 +126,26 @@ handle_call({wait_ws, Mask}, _, S=#state{user=Admin}) ->
 	Re = agent:wait_ws(Admin, Mask),
 	{reply, Re, S};
 
+handle_call({reset}, _, #state{user=Admin, watch=W}) ->
+	call:hupall(),
+	ts_core:wait(fun() -> [] = call:active() end),
+	[ delete(Admin, Value) || Value <- maps:values(W) ],
+	{reply, ok, #state{user=Admin}};
+
 handle_call(_Request, _From, S=#state{}) ->
 	lager:error("unhandled call:~p", [_Request]),
 	{reply, ok, S}.
 
 terminate(_Reason, _S=#state{user=Admin, watch=W}) ->
 	lager:info("terminate, reason:~p", [_Reason]),
-	[ hangup(UUID) || UUID <- call:active() ],
+	call:hupall(),
 	[ delete(Admin, Value) || Value <- maps:values(W) ],
 	ok.
 code_change(_OldVsn, S=#state{}, _Extra) -> {ok, S}.
 
-hangup(UUID) ->
-	call:hangup(UUID),
-	call:wait_hangup(UUID).
 
 delete(Admin, {group, Group}) -> <<"ok">> = agent:rpc_call(Admin, <<"ouc_rpc_adm.delete_group">>, [Group]);
 delete(Admin, {queue, Queue}) -> <<"ok">> = agent:rpc_call(Admin, <<"ouc_rpc_adm.delete_queue">>, [Queue]);
 delete(Admin, {agent, Agent}) -> <<"ok">> = agent:rpc_call(Admin, <<"ouc_rpc_adm.delete_agent">>, [Agent]);
-delete(Admin, {profile, Profile}) -> <<"ok">> = agent:rpc_call(Admin, <<"ouc_rpc_adm.delete_profile">>, [Profile]).
+delete(Admin, {profile, Profile}) -> <<"ok">> = agent:rpc_call(Admin, <<"ouc_rpc_adm.delete_profile">>, [Profile]);
+delete(_, undefined) -> skip.

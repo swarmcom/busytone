@@ -71,8 +71,7 @@ run_test(Test) ->
 	lager:notice("~p is running...", [Test]),
 	Re = test_run:run(Pid, Test),
 	log_result(Test, Re),
-	test_run:stop(Pid),
-	timer:sleep(500).
+	test_run:stop(Pid).
 
 shuffle(L) ->
 	[ X || {_, X} <- lists:sort([ {rand:uniform(), N} || N <- L]) ].
