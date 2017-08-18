@@ -1,15 +1,14 @@
 -module(t_core_agent_seq).
 -export([main/0]).
-
-% check agents are sorted by longest available state
+-import(ts_core, [wait/1]).
 
 main() ->
+	lager:notice("check agents are sorted by longest available state"),
 	A = test_lib:available(),
 	B = test_lib:available(),
 	C = test_lib:available(),
-	[#{ <<"login">> := A }, #{ <<"login">> := B }, #{ <<"login">> := C } ] = admin:call(agents, []),
+	wait(fun() -> [#{ <<"login">> := A }, #{ <<"login">> := B }, #{ <<"login">> := C } ] = admin:call(agents, []) end),
 
 	test_lib:release(A),
 	test_lib:available(A),
-	timer:sleep(100),
-	[#{ <<"login">> := B }, #{ <<"login">> := C }, #{ <<"login">> := A } ] = admin:call(agents, []).
+	wait(fun() -> [#{ <<"login">> := B }, #{ <<"login">> := C }, #{ <<"login">> := A } ] = admin:call(agents, []) end).
