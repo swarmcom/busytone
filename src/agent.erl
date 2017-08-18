@@ -4,7 +4,7 @@
 -include_lib("stdlib/include/qlc.hrl").
 
 -export([
-	start_link/3, start/3, start/4, pid/1,
+	start_link/3, start/3, start/4, pid/1, auth/1,
 	rpc/3, rpc_call/3, available/1, release/1, stop/1,
 	calls/1, wait_for_call/1, on_incoming/2,
 	wait_ws/4, wait_ws/3, wait_ws/2, wait_ev/3,
@@ -49,6 +49,7 @@ ws_debug_filter(Id, Filter) -> gen_safe:call(Id, fun pid/1, {ws_debug_filter, Fi
 wait_for_call(Id) -> gen_safe:call(Id, fun pid/1, wait_for_call).
 on_incoming(Id, UUID) -> gen_safe:call(Id, fun pid/1, {on_incoming, UUID}).
 stop(Id) -> gen_safe:call(Id, fun pid/1, stop).
+auth(Id) -> gen_safe:call(Id, fun pid/1, auth).
 available(Id) -> rpc(Id, go_available, []).
 release(Id) -> rpc(Id, go_released, []).
 
@@ -150,6 +151,7 @@ handle_call({wait_ws, Match, Depth}, From, S=#state{ ws_log = WsLog }) ->
 		no_match -> {noreply, S};
 		{match, _Ts, _Msg} = Re -> {reply, Re, S}
 	end;
+handle_call(auth, _, S=#state{http_request=Auth}) -> {reply, Auth, S};
 handle_call(stop, _, S=#state{}) ->
 	{stop, normal, ok, S};
 
@@ -176,7 +178,7 @@ code_change(_OldVsn, S=#state{}, _Extra) -> {ok, S}.
 handle_cookie(#{ <<"set-cookie">> := <<"OUCX=",Cookie/binary>> }, S=#state{ reach = Pid }) ->
 	Cookie1 = binary:replace(Cookie, <<"; Version=1; Path=/">>, <<>>),
 	gun:ws_upgrade(Pid, <<"/wsock?token=", Cookie1/binary>>, []),
-	{noreply, S#state{ cookie = Cookie1 }};
+	{noreply, S#state{ cookie = Cookie1, http_request=ws }};
 handle_cookie(_, S) -> {noreply, S}.
 
 handle_ws_text(#{ <<"result">> := #{ <<"pong">> := _ } }, S) ->
