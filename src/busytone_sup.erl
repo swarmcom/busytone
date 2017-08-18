@@ -16,13 +16,11 @@ init(_Args) ->
 	Fs = cfg(freeswitch_drone),
 	Host = cfg(reach_host),
 	Port = cfg(reach_port),
-	Admin = cfg(admin_user),
 	FSURI = cfg(freeswitch_tmpl),
 	ChildSpecs = [
 		?CHILD(call_sup, [FSURI]),
 		?CHILD(fswitch, [Fs]),
 		?CHILD(agent_sup, [Host, Port]),
-		?CHILD(test_sup, []),
-		?CHILD(watcher, [{admin, start_link, [Admin]}, 0])
+		?CHILD(test_sup, [])
 	],
 	{ok, {SupFlags, ChildSpecs}}.
