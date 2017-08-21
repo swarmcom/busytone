@@ -1,16 +1,18 @@
 {application, busytone,
 [
 	{description, "SIP Test Suite"},
-	{vsn, "1.0"},
+	{vsn, "1.0.0"},
 	{registered, []},
 	{applications, [
 		kernel,
 		stdlib,
 		gun,
 		lager,
-		gproc
+		gproc,
+		fswitch
 	]},
-	{modules, []},
 	{mod, { busytone_app, []}},
-	{env, []}
+	{maintainers,["Roman Galeev"]},
+	{licenses,["GPL"]},
+	{links,[{"Github","https://github.com/jamhed/busytone"}]}
 ]}.
