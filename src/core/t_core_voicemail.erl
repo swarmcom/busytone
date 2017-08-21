@@ -5,7 +5,7 @@
 main() ->
 	lager:notice("check inqueue call conversion to voicemail"),
 	A = admin:new_agent(),
-	{ok, In} = call_sup:originate("default_queue"),
+	In = call_sup:originate("default_queue"),
 	admin:call(subscribe, [uuid, In]),
 	wait(fun() -> [#{ <<"uuid">> := In, <<"state">> := <<"inqueue">>, <<"record">> := <<"inqueue_call">> }]  = admin:call(inqueues, []) end),
 	call:send_dtmf(In, "*"),

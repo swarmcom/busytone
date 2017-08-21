@@ -13,7 +13,7 @@ main() ->
 	wait(fun() -> [#{ <<"state">> := <<"available">> }] = admin:call(agents, []) end).
 
 setup_talk(A) ->
-	{ok, LegA} = call_sup:originate(<<"default_queue">>),
+	LegA = call_sup:originate(<<"default_queue">>),
 	[LegB] = agent:wait_for_call(A),
 	ok = call:answer(LegB),
 	agent:wait_ev(A, LegB, <<"CHANNEL_BRIDGE">>),
