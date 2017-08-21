@@ -107,7 +107,7 @@ with_clid(Opts, Seq) -> Opts ++ [
 
 stringify_opts([]) -> "";
 stringify_opts(Opts) when is_list(Opts) ->
-	Str = string:join([ io_lib:format("~s=~s", [K,V]) || {K, V} <- Opts ], ","),
+	Str = string:join([ io_lib:format("~s=~s", [K,V]) || {K, V} <- lists:usort(fun({K1,_}, {K2,_}) -> K1 =< K2 end, Opts) ], ","),
 	io_lib:format("{~s}", [Str]).
 
 template(T, N) -> io_lib:format(T, [N]).
