@@ -6,7 +6,7 @@
 main() ->
 	Agent = test_lib:available(admin:new_agent()),
 	agent:wait_ws(Agent, #{ <<"command">> => <<"arelease">>, <<"releaseData">> => false }),
-	{ok, InQueueCall} = call_sup:originate(<<"non_existent_queue">>),
+	InQueueCall = call_sup:originate(<<"non_existent_queue">>),
 	UUID = test_lib:answer(Agent),
 	test_lib:ensureTalking(InQueueCall, UUID),
 	call:hangup(UUID),
