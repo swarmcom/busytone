@@ -15,7 +15,7 @@ main() ->
 
 	[] = admin:call(inqueues, []),
 	UUID = call_sup:originate(<<"default_queue">>),
-	[#{ <<"uuid">> := UUID }]  = admin:call(inqueues, []),
+	wait(fun() -> [#{ <<"uuid">> := UUID }]  = admin:call(inqueues, []) end),
 	call:hangup(UUID),
 	call:wait_hangup(UUID),
 	wait(fun() -> [] = admin:call(inqueues, []) end).

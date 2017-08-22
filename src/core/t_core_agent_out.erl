@@ -8,8 +8,8 @@ main() ->
 	agent:rpc_call(A, 'ouc.call_outbound', [some_destination]),
 	[LegA] = agent:wait_for_call(A),
 	ok = call:answer(LegA),
-	#{ <<"Core-UUID">> := LegB } = call_sup:wait_call(),
-	call:start_link(LegB),
+	#{ <<"Unique-ID">> := LegB, <<"Caller-Destination-Number">> := <<"some_destination">> } = call_sup:wait_call(),
 	ok = call:answer(LegB),
-	lager:error("~p", [LegB]),
-	timer:sleep(10000).
+	test_lib:ensureTalking(LegA, LegB),
+	call:hangup(LegA),
+	wait(fun() -> [ #{ <<"login">> := A } ] = admin:call(agents, []) end).
