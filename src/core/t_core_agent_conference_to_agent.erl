@@ -6,7 +6,7 @@ main() ->
 	lager:notice("agent can setup a conference call with another agent"),
 	A = test_lib:available(),
 	{LegA, LegB} = ts_core:setup_talk(A),
-	agent:wait_ev(LegB, LegB, <<"CHANNEL_BRIDGE">>),
+	agent:wait_ev(A, LegB, <<"CHANNEL_BRIDGE">>),
 
 	B = test_lib:available(),
 	agent:rpc_call(A, conference_to_agent, [skip, B]),
