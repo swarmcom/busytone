@@ -128,8 +128,8 @@ handle_call({wait_ws, Mask}, _, S=#state{user=Admin}) ->
 
 handle_call({reset}, _, #state{user=Admin, watch=W}) ->
 	call:hupall(),
+	cleanup_waiters(Admin, W),
 	ts_core:wait(fun() -> [] = call:active() end),
-	[ delete(Admin, Value) || Value <- maps:values(W) ],
 	{reply, ok, #state{user=Admin}};
 
 handle_call(_Request, _From, S=#state{}) ->
@@ -139,14 +139,16 @@ handle_call(_Request, _From, S=#state{}) ->
 terminate(_Reason, _S=#state{user=Admin, watch=W}) ->
 	lager:info("terminate, reason:~p", [_Reason]),
 	call:hupall(),
-	[ delete(Admin, Value) || Value <- maps:values(W) ],
+	cleanup_waiters(Admin, W),
 	ok.
 code_change(_OldVsn, S=#state{}, _Extra) -> {ok, S}.
 
+cleanup_waiters(Admin, W) ->
+	[ delete(Admin, Value) || Value = {Type, _} <- maps:values(W), Type =/= admin ].
 
 delete(Admin, {group, Group}) -> <<"ok">> = agent:rpc_call(Admin, <<"ouc_rpc_adm.delete_group">>, [Group]);
 delete(Admin, {queue, Queue}) -> <<"ok">> = agent:rpc_call(Admin, <<"ouc_rpc_adm.delete_queue">>, [Queue]);
 delete(Admin, {agent, Agent}) -> <<"ok">> = agent:rpc_call(Admin, <<"ouc_rpc_adm.delete_agent">>, [Agent]);
 delete(Admin, {profile, Profile}) -> <<"ok">> = agent:rpc_call(Admin, <<"ouc_rpc_adm.delete_profile">>, [Profile]);
-delete(_, {admin, _}) -> admin:stop();
+delete(_, {admin, _}) -> lager:warning("wtf"), admin:stop();
 delete(_, undefined) -> skip.

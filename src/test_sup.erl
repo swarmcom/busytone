@@ -48,14 +48,14 @@ handle_call({run, Test}, _From, S=#state{}) ->
 handle_call({run}, _From, S=#state{}) ->
 	AllMods = [ erlang:atom_to_list(Module) || {Module, _} <- code:all_loaded() ],
 	TestMods = [ erlang:list_to_atom(Module) || Module <- AllMods, is_test(Module) ],
-	notice(), [ run_test(Test) || Test <- shuffle(TestMods) ], info(),
+	notice(), run_test(shuffle(TestMods)), info(),
 	{reply, ok, S};
 
 handle_call({runs, Pfx}, _From, S=#state{}) ->
 	AllMods = [ erlang:atom_to_list(Module) || {Module, _} <- code:all_loaded() ],
 	Prefix = erlang:atom_to_list(Pfx),
 	TestMods = [ erlang:list_to_atom(Module) || Module <- AllMods, is_test(Module, Prefix) ],
-	notice(), [ run_test(Test) || Test <- TestMods ], info(),
+	notice(), run_test(TestMods), info(),
 	{reply, ok, S};
 
 handle_call(_Request, _From, S=#state{}) ->
@@ -66,6 +66,8 @@ terminate(_Reason, _S) ->
 	ok.
 code_change(_OldVsn, S=#state{}, _Extra) -> {ok, S}.
 
+run_test(T) when is_list(T) ->
+	[ run_test(Test) || Test <- T ];
 run_test(Test) ->
 	{ok, Pid} = test_run:start_link(),
 	lager:notice("~p is running...", [Test]),
