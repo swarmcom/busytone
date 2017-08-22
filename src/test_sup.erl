@@ -71,7 +71,7 @@ run_test(T) when is_list(T) ->
 run_test(Test) ->
 	{ok, Pid} = test_run:start_link(),
 	lager:notice("~p is running...", [Test]),
-	Re = test_run:run(Pid, Test),
+	Re = handle_re(test_run:run(Pid, Test)),
 	log_result(Test, Re),
 	test_run:stop(Pid).
 
@@ -85,3 +85,7 @@ is_test("t_"++_) -> true;
 is_test(_) -> false.
 
 is_test(Name, Prefix) -> lists:prefix(Prefix, Name).
+
+handle_re(not_ok=Re) -> timer:sleep(1000), Re;
+handle_re(Re) -> Re.
+
