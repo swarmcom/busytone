@@ -23,4 +23,4 @@ main() ->
 	call:hangup(LegB),
 	call:hangup(LegA),
 	call:hangup(LegC),
-	wait(fun() -> [ #{ <<"login">> := A }, #{ <<"login">> := B } ] = admin:available_agents() end).
+	wait(fun() -> [] = admin:call(inqueues, [all]) end).
