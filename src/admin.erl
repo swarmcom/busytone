@@ -131,6 +131,7 @@ handle_call({wait_ws, Mask}, _, S=#state{user=Admin}) ->
 	{reply, Re, S};
 
 handle_call({reset}, _, #state{user=Admin, watch=W}) ->
+	agent:rpc_call(Admin, <<"ouc_rpc_adm.reset">>, []),
 	call:hupall(),
 	cleanup_waiters(Admin, W),
 	ts_core:wait(fun() -> [] = call:active() end),
