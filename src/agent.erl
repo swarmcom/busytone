@@ -71,7 +71,7 @@ init([Pid, Host, Port, A=#agent{}]) ->
 	{ok, State} = init([Host, Port, A]),
 	{ok, State#state{caller_pid=Pid}};
 init([Host, Port, A=#agent{login=Login}]) ->
-	lager:info("start, login:~p", [Login]),
+	lager:info("~p start", [Login]),
 	{ok, Reach} = gun:open(Host, Port),
 	monitor(process, Reach),
 	gproc:reg({n, l, {?MODULE, Login}}, A),
@@ -89,8 +89,8 @@ handle_info({gun_response, _Pid, _StreamRef, nofin, 200, Headers}, S=#state{http
 	handle_cookie(to_map(Headers), S);
 handle_info({gun_response, _Pid, _StreamRef, nofin, 401, _Headers}, S=#state{http_request=auth}) ->
 	{stop, auth_failure, S};
-handle_info({gun_response, _Pid, _StreamRef, nofin, Status, Headers}, S) ->
-	lager:info("status:~p headers:~p", [Status, Headers]),
+handle_info({gun_response, _Pid, _StreamRef, nofin, Status, Headers}, S=#state{agent=#agent{login=_Agent}}) ->
+	lager:info("~s gun_response status:~p headers:~p", [_Agent, Status, Headers]),
 	{noreply, S};
 handle_info({gun_ws_upgrade, _Pid, ok, _Headers}, S) ->
 	erlang:send_after(1000, self(), ping),
@@ -114,11 +114,11 @@ handle_info(auth, S=#state{ reach = Pid, agent = #agent{login=Login, password=Pa
 
 handle_info({'DOWN', Ref, process, _Pid, _Reason}, S=#state{ incoming_call={Ref, _UUID} }) ->
 	{noreply, S#state{incoming_call=undefined}};
-handle_info({'DOWN', _Ref, process, Pid, _Reason}, S=#state{ reach=Pid }) ->
-	lager:info("reach connection is dead, pid:~p reason:~p", [Pid, _Reason]),
+handle_info({'DOWN', _Ref, process, Pid, _Reason}, S=#state{agent=#agent{login=_Agent}, reach=Pid}) ->
+	lager:info("~s reach connection is dead, pid:~p reason:~p", [_Agent, Pid, _Reason]),
 	{stop, normal, S};
 handle_info({'DOWN', _Ref, process, Pid, _Reason}, S=#state{agent=#agent{login=Agent}}) ->
-	lager:debug("incoming call is down, agent:~s pid:~p", [Agent, Pid]),
+	lager:debug("~s incoming call pid:~p is down", [Agent, Pid]),
 	{noreply, S};
 
 handle_info({call, UUID, #{ <<"Caller-Destination-Number">> := Number, <<"Caller-Logical-Direction">> := <<"inbound">> }}, S=#state{ agent=#agent{ number = Number }}) ->
@@ -153,9 +153,9 @@ handle_call({wait_ws, Match, Depth}, From, S=#state{ ws_log = WsLog }) ->
 handle_call(stop, _, S=#state{}) ->
 	{stop, normal, ok, S};
 
-handle_call({rpc, Cmd, Args}, _, S=#state{ reach = Pid, ws_msg_id = Id }) ->
+handle_call({rpc, Cmd, Args}, _, S=#state{ agent=#agent{login=_Login}, reach = Pid, ws_msg_id = Id }) ->
 	Text = jiffy:encode(#{ id => Id, method => Cmd, params => Args, jsonrpc => <<"2.0">> }),
-	lager:debug("ws out:~s", [Text]),
+	lager:debug("~s ws out ~s", [_Login, Text]),
 	gun:ws_send(Pid, {text, Text}),
 	{reply, Id, S#state{ws_msg_id = Id + 1}};
 
@@ -168,7 +168,7 @@ handle_call(_Msg, _From, S=#state{}) ->
 handle_cast(_Msg, S=#state{}) -> {noreply, S}.
 
 terminate(_Reason, _S=#state{reach=Pid, agent=#agent{login=Login}}) ->
-	lager:info("terminate, login:~s reason:~p", [Login, _Reason]),
+	lager:info("~s terminate, reason:~p", [Login, _Reason]),
 	gun:close(Pid),
 	ok.
 code_change(_OldVsn, S=#state{}, _Extra) -> {ok, S}.
@@ -181,8 +181,8 @@ handle_cookie(_, S) -> {noreply, S}.
 
 handle_ws_text(#{ <<"result">> := #{ <<"pong">> := _ } }, S) ->
 	{noreply, S};
-handle_ws_text(Msg, S=#state{ ws_log=WsLog, ws_debug_filter=Filter }) ->
-	maybe_debug(Msg, Filter),
+handle_ws_text(Msg, S=#state{ agent=Agent, ws_log=WsLog, ws_debug_filter=Filter }) ->
+	maybe_debug(Agent, Msg, Filter),
 	case event_log:add(WsLog, Msg) of
 		{match, Caller, {Ts, Msg}} -> gen_server:reply(Caller, {match, Ts, Msg});
 		_ -> skip
@@ -202,11 +202,11 @@ maybe_notify_waiter(S=#state{wait_for_incoming=From, incoming_call={_Ref, UUID}}
 to_map(H) ->
 	lists:foldl(fun({K,V}, M) -> M#{ K => V } end, #{}, H).
 
-maybe_debug(Msg = #{ <<"event">> := Event }, Filter) when is_list(Filter) ->
-	maybe_debug(Msg, Filter == [] orelse not lists:member(Event, Filter));
-maybe_debug(Msg, Filter) when is_list(Filter) -> maybe_debug(Msg, true);
-maybe_debug(_Msg, false) -> skip;
-maybe_debug(Msg, true) -> lager:debug("ws in, msg:~p", [Msg]).
+maybe_debug(_Agent, Msg = #{ <<"event">> := Event }, Filter) when is_list(Filter) ->
+	maybe_debug(_Agent, Msg, Filter == [] orelse not lists:member(Event, Filter));
+maybe_debug(_Agent, Msg, Filter) when is_list(Filter) -> maybe_debug(_Agent, Msg, true);
+maybe_debug(_Agent, _Msg, false) -> skip;
+maybe_debug(#agent{login=Agent}, Msg, true) -> lager:debug("~s ws in ~p", [Agent, Msg]).
 
 % connect and authenticate with reach
 % accept and manipulate incoming calls
