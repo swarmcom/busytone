@@ -7,8 +7,8 @@ main() ->
 	A = test_lib:available(),
 	B = test_lib:available(),
 	C = test_lib:available(),
-	wait(fun() -> [#{ <<"login">> := A }, #{ <<"login">> := B }, #{ <<"login">> := C } ] = admin:call(agents, []) end),
+	wait(fun() -> [#{ <<"login">> := A }, #{ <<"login">> := B }, #{ <<"login">> := C } ] = admin:available_agents() end),
 
 	test_lib:release(A),
 	test_lib:available(A),
-	wait(fun() -> [#{ <<"login">> := B }, #{ <<"login">> := C }, #{ <<"login">> := A } ] = admin:call(agents, []) end).
+	wait(fun() -> [#{ <<"login">> := B }, #{ <<"login">> := C }, #{ <<"login">> := A } ] = admin:available_agents() end).

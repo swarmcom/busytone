@@ -1,16 +1,15 @@
--module(t_core_agent_conference_to_agent).
+-module(t_core_agent_conference_to_outgoing).
 -export([main/0]).
 -import(ts_core, [wait/1]).
 
 main() ->
-	lager:notice("agent can setup a conference call with another agent"),
+	lager:notice("agent can setup a conference call with a queue"),
 	A = test_lib:available(),
 	{LegA, LegB} = ts_core:setup_talk(A),
 	agent:wait_ev(A, LegB, <<"CHANNEL_BRIDGE">>),
 
-	B = test_lib:available(),
-	agent:rpc_call(A, conference_to_agent, [skip, B]),
-	[LegC] = agent:wait_for_call(B),
+	agent:rpc_call(A, conference_to_outband, [skip, <<"external_number">>]),
+	#{ <<"Unique-ID">> := LegC, <<"Caller-Destination-Number">> := <<"external_number">> } = call_sup:wait_call(),
 	ok = call:answer(LegC),
 
 	agent:wait_ws(A, #{ <<"event">> => <<"agent_state">> }),
@@ -23,4 +22,4 @@ main() ->
 	call:hangup(LegB),
 	call:hangup(LegA),
 	call:hangup(LegC),
-	wait(fun() -> [ #{ <<"login">> := A }, #{ <<"login">> := B } ] = admin:available_agents() end).
+	wait(fun() -> [ #{ <<"login">> := A } ] = admin:available_agents() end).

@@ -10,7 +10,7 @@ main() ->
 
 	B = test_lib:available(),
 	test_hup_b(B),
-	wait(fun() -> [#{ <<"state">> := <<"available">> }] = admin:call(agents, []) end).
+	wait(fun() -> [#{ <<"state">> := <<"available">> }] = admin:available_agents() end).
 
 setup_talk(A) ->
 	LegA = call_sup:originate(<<"default_queue">>),

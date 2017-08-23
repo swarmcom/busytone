@@ -10,4 +10,4 @@ main() ->
 	agent:rpc_call(A, transfer_to_agent, [skip, B]),
 	[UUID] = agent:wait_for_call(B),
 	call:hangup(UUID),
-	wait(fun() -> [ #{ <<"login">> := A }, #{ <<"login">> := B } ] = admin:call(agents, []) end).
+	wait(fun() -> [ #{ <<"login">> := A }, #{ <<"login">> := B } ] = admin:available_agents() end).

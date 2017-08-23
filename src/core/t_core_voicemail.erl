@@ -20,4 +20,4 @@ main() ->
 	call:wait_event(LegA, <<"CHANNEL_ANSWER">>),
 	call:wait_hangup(LegA),
 	wait(fun() -> []  = admin:call(inqueues, []) end),
-	[#{ <<"login">> := A, <<"state">> := <<"available">> }]  = admin:call(agents, []).
+	[#{ <<"login">> := A, <<"state">> := <<"available">> }] = admin:available_agents().

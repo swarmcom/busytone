@@ -1,7 +1,7 @@
 -module(test_sup).
 -behaviour(gen_server).
 
--export([start_link/0, run/0, run/1, runs/1, info/0, debug/0, notice/0, set_loglevel/1]).
+-export([start_link/0, run/0, run/1, run/2, runs/1, info/0, debug/0, notice/0, set_loglevel/1]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
@@ -18,6 +18,7 @@ start_link() ->
 	gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
 run(Test) -> gen_server:call(?MODULE, {run, Test}, infinity).
+run(Test, N) -> gen_server:call(?MODULE, {run, Test, N}, infinity).
 runs(Prefix) -> gen_server:call(?MODULE, {runs, Prefix}, infinity).
 run() -> gen_server:call(?MODULE, {run}, infinity).
 
@@ -45,6 +46,10 @@ handle_call({run, Test}, _From, S=#state{}) ->
 	run_test(Test),
 	{reply, ok, S};
 
+handle_call({run, Test, N}, _From, S=#state{}) ->
+	run_test(Test, N),
+	{reply, ok, S};
+
 handle_call({run}, _From, S=#state{}) ->
 	AllMods = [ erlang:atom_to_list(Module) || {Module, _} <- code:all_loaded() ],
 	TestMods = [ erlang:list_to_atom(Module) || Module <- AllMods, is_test(Module) ],
@@ -66,8 +71,8 @@ terminate(_Reason, _S) ->
 	ok.
 code_change(_OldVsn, S=#state{}, _Extra) -> {ok, S}.
 
-run_test(T) when is_list(T) ->
-	[ run_test(Test) || Test <- T ];
+run_test(T, N) when is_number(N) -> [ run_test(T) || _I <- lists:seq(1, N) ].
+run_test(T) when is_list(T) -> [ run_test(Test) || Test <- T ];
 run_test(Test) ->
 	{ok, Pid} = test_run:start_link(),
 	lager:notice("~p is running...", [Test]),

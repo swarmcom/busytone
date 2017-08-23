@@ -12,4 +12,4 @@ main() ->
 	ok = call:answer(LegB),
 	test_lib:ensureTalking(LegA, LegB),
 	call:hangup(LegA),
-	wait(fun() -> [ #{ <<"login">> := A } ] = admin:call(agents, []) end).
+	wait(fun() -> [ #{ <<"login">> := A } ] = admin:available_agents() end).
