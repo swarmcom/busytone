@@ -1,4 +1,4 @@
--module(t_core_inqueue_recipe).
+-module(t_core_recipe_announce).
 -export([main/0]).
 -import(ts_core, [wait/1]).
 
