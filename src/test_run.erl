@@ -29,7 +29,7 @@ handle_call({run, Test}, _From, S=#state{}) ->
 		{reply, ok, S}
 	catch C:E ->
 		lager:error("~s error:~s", [Test, lager:pr_stacktrace(erlang:get_stacktrace(), {C,E})]),
-		admin:stop(),
+		admin:reset(),
 		{reply, not_ok, S}
 	end;
 

@@ -133,8 +133,8 @@ handle_info({gun_ws, _Pid, {close, _, _}}, S) ->
 handle_info({'EXIT', Pid, _}, S=#state{caller_pid=Pid}) ->
 	{stop, normal, S};
 
-handle_info(_Info, S=#state{}) ->
-	lager:error("unhandled info:~p", [_Info]),
+handle_info(_Info, S=#state{agent=#agent{login=_Login}}) ->
+	lager:error("~s unhandled info:~p", [_Login, _Info]),
 	{noreply, S}.
 
 handle_call(calls, _From, S=#state{incoming_call=undefined}) -> {reply, [], S};
