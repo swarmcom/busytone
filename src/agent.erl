@@ -23,7 +23,7 @@
 	ws_log,
 	wait_for_incoming,
 	incoming_call,
-	ws_debug_filter = [ <<"cpx_agent_change">>, <<"call_count_update">> ]
+	ws_debug_filter = []
 }).
 
 -define(STEP, 1000).
