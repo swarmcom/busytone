@@ -36,13 +36,10 @@ update_queue(Name, Props) -> gen_server:call(?MODULE, {update_queue, Name, Props
 update_group(Name, Props) -> gen_server:call(?MODULE, {update_group, Name, Props}).
 
 rpc_call(Cmd, Args) -> gen_server:call(?MODULE, {rpc_call, Cmd, Args}).
-call(Cmd, Args) -> gen_server:call(?MODULE, {rpc_call, <<"ouc_rpc_adm.",(a2b(Cmd))/binary>>, Args}).
+call(Cmd, Args) -> gen_server:call(?MODULE, {rpc_call, ws_admin, Cmd, Args}).
 wait_ws(Mask) -> gen_server:call(?MODULE, {wait_ws, Mask}).
 
 available_agents() -> call(agents, []).
-
-a2b(A) when is_atom(A) -> erlang:atom_to_binary(A, utf8);
-a2b(B) when is_binary(B) -> B.
 
 stop() -> gen_server:cast(?MODULE, {stop}).
 reset() -> gen_server:call(?MODULE, {reset}).
@@ -50,7 +47,7 @@ reset() -> gen_server:call(?MODULE, {reset}).
 init([{Login, Pass}=_A]) ->
 	lager:info("start, admin:~p", [_A]),
 	Admin = test_lib:login(Login, Pass, Login),
-	agent:rpc_call(Admin, <<"ouc_rpc_adm.reset">>, []),
+	agent:rpc_call(Admin, ws_admin, reset, []),
 	{ok, #state{user=Admin, watch=#{ erlang:monitor(process, agent:pid(Admin)) => {admin, Admin} }}}.
 
 handle_cast({stop}, S=#state{}) ->
@@ -70,56 +67,56 @@ handle_info(_Info, S=#state{}) ->
 
 handle_call({new_agent, Map}, {Pid, _Ref}, S=#state{agent=Id, user=Admin, watch=W}) ->
 	AgentId = <<"test_agent_", (erlang:integer_to_binary(Id))/binary>>,
-	[Login, Password, Number] = agent:rpc_call(Admin, <<"ouc_rpc_adm.create_agent">>, [Map#{ id => AgentId }]),
+	[Login, Password, Number] = agent:rpc_call(Admin, ws_admin, create_agent, [Map#{ id => AgentId }]),
 	Agent = agent_sup:agent(Pid, Login, Password, Number),
-	agent:wait_ws(Agent, #{ <<"username">> => Agent }),
+	agent:wait_ws(Agent, #{ <<"agent">> => Agent }),
 	{reply, Agent, S#state{agent=Id+1, watch=W#{ erlang:monitor(process, Pid) => {agent, Agent} }}};
 
 handle_call({new_profile, M}, {Pid, _Ref}, S=#state{profile=Id, user=Admin, watch=W}) ->
 	ProfileId = <<"test_profile_", (erlang:integer_to_binary(Id))/binary>>,
-	Name = agent:rpc_call(Admin, <<"ouc_rpc_adm.create_profile">>, [M#{ id => ProfileId }]),
+	Name = agent:rpc_call(Admin, ws_admin, create_profile, [M#{ id => ProfileId }]),
 	{reply, Name, S#state{profile=Id+1, watch=W#{ erlang:monitor(process, Pid) => {profile, Name} }}};
 
 handle_call({new_queue, M}, {Pid, _Ref}, S=#state{queue=Id, user=Admin, watch=W}) ->
 	QueueId = <<"test_queue_", (erlang:integer_to_binary(Id))/binary>>,
-	Name = agent:rpc_call(Admin, <<"ouc_rpc_adm.create_queue">>, [M#{ name => QueueId }]),
+	Name = agent:rpc_call(Admin, ws_admin, create_queue, [M#{ name => QueueId }]),
 	{reply, Name, S#state{queue=Id+1, watch=W#{ erlang:monitor(process, Pid) => {queue, Name} }}};
 
 handle_call({new_group, M}, {Pid, _Ref}, S=#state{group=Id, user=Admin, watch=W}) ->
 	GroupId = <<"test_queue_group_", (erlang:integer_to_binary(Id))/binary>>,
-	Name = agent:rpc_call(Admin, <<"ouc_rpc_adm.create_group">>, [M#{ name => GroupId }]),
+	Name = agent:rpc_call(Admin, ws_admmin, create_group, [M#{ name => GroupId }]),
 	{reply, Name, S#state{group=Id+1, watch=W#{ erlang:monitor(process, Pid) => {group, Name} }}};
 
 handle_call({get_agent, Login}, _, S=#state{user=Admin}) ->
-	Agent = agent:rpc_call(Admin, <<"ouc_rpc_adm.get_agent">>, [Login]),
+	Agent = agent:rpc_call(Admin, ws_admin, get_agent, [Login]),
 	{reply, Agent, S};
 
 handle_call({get_profile, Name}, _, S=#state{user=Admin}) ->
-	Re = agent:rpc_call(Admin, <<"ouc_rpc_adm.get_profile">>, [Name]),
+	Re = agent:rpc_call(Admin, ws_admin, get_profile, [Name]),
 	{reply, Re, S};
 
 handle_call({get_queue, Name}, _, S=#state{user=Admin}) ->
-	Re = agent:rpc_call(Admin, <<"ouc_rpc_adm.get_queue">>, [Name]),
+	Re = agent:rpc_call(Admin, ws_admin, get_queue, [Name]),
 	{reply, Re, S};
 
 handle_call({get_group, Name}, _, S=#state{user=Admin}) ->
-	Re = agent:rpc_call(Admin, <<"ouc_rpc_adm.get_group">>, [Name]),
+	Re = agent:rpc_call(Admin, ws_admin, get_group, [Name]),
 	{reply, Re, S};
 
 handle_call({update_agent, Login, Diff}, _, S=#state{user=Admin}) ->
-	Re = agent:rpc_call(Admin, <<"ouc_rpc_adm.update_agent">>, [Login, Diff]),
+	Re = agent:rpc_call(Admin, ws_admin, update_agent, [Login, Diff]),
 	{reply, Re, S};
 
 handle_call({update_profile, Name, Diff}, _, S=#state{user=Admin}) ->
-	Re = agent:rpc_call(Admin, <<"ouc_rpc_adm.update_profile">>, [Name, Diff]),
+	Re = agent:rpc_call(Admin, ws_admin, update_profile, [Name, Diff]),
 	{reply, Re, S};
 
 handle_call({update_queue, Name, Diff}, _, S=#state{user=Admin}) ->
-	Re = agent:rpc_call(Admin, <<"ouc_rpc_adm.update_queue">>, [Name, Diff]),
+	Re = agent:rpc_call(Admin, ws_admin, update_queue, [Name, Diff]),
 	{reply, Re, S};
 
 handle_call({update_group, Name, Diff}, _, S=#state{user=Admin}) ->
-	Re = agent:rpc_call(Admin, <<"ouc_rpc_adm.update_group">>, [Name, Diff]),
+	Re = agent:rpc_call(Admin, ws_admin, update_group, [Name, Diff]),
 	{reply, Re, S};
 
 handle_call({rpc_call, Cmd, Args}, _, S=#state{user=Admin}) ->
@@ -131,7 +128,7 @@ handle_call({wait_ws, Mask}, _, S=#state{user=Admin}) ->
 	{reply, Re, S};
 
 handle_call({reset}, _, #state{user=Admin, watch=W}) ->
-	agent:rpc_call(Admin, <<"ouc_rpc_adm.reset">>, []),
+	agent:rpc_call(Admin, ws_admin, reset, []),
 	call:hupall(),
 	cleanup_waiters(Admin, W),
 	ts_core:wait(fun() -> [] = call:active() end),
@@ -151,9 +148,9 @@ code_change(_OldVsn, S=#state{}, _Extra) -> {ok, S}.
 cleanup_waiters(Admin, W) ->
 	[ delete(Admin, Value) || Value = {Type, _} <- maps:values(W), Type =/= admin ].
 
-delete(Admin, {group, Group}) -> <<"ok">> = agent:rpc_call(Admin, <<"ouc_rpc_adm.delete_group">>, [Group]);
-delete(Admin, {queue, Queue}) -> <<"ok">> = agent:rpc_call(Admin, <<"ouc_rpc_adm.delete_queue">>, [Queue]);
-delete(Admin, {agent, Agent}) -> <<"ok">> = agent:rpc_call(Admin, <<"ouc_rpc_adm.delete_agent">>, [Agent]);
-delete(Admin, {profile, Profile}) -> <<"ok">> = agent:rpc_call(Admin, <<"ouc_rpc_adm.delete_profile">>, [Profile]);
+delete(Admin, {group, Group}) -> <<"ok">> = agent:rpc_call(Admin, ws_admin, delete_group, [Group]);
+delete(Admin, {queue, Queue}) -> <<"ok">> = agent:rpc_call(Admin, ws_admin, delete_queue, [Queue]);
+delete(Admin, {agent, Agent}) -> <<"ok">> = agent:rpc_call(Admin, ws_admin, delete_agent, [Agent]);
+delete(Admin, {profile, Profile}) -> <<"ok">> = agent:rpc_call(Admin, ws_admin, delete_profile, [Profile]);
 delete(_, {admin, _}) -> admin:stop();
 delete(_, undefined) -> skip.

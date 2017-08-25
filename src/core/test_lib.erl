@@ -37,7 +37,7 @@ receive_voicemail(Agent) ->
 
 login(Login, Password, Number) ->
 	Agent = agent_sup:agent(Login, Password, Number),
-	agent:wait_ws(Agent, #{ <<"username">> => Agent }),
+	{_, _, #{ <<"info">> := #{ <<"login">> := Agent }}} = agent:wait_ws(Agent, #{ <<"tag">> => <<"ws_login">> }),
 	Agent.
 
 available() -> available(admin:new_agent()).
