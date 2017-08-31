@@ -1,7 +1,7 @@
 -module(test_sup).
 -behaviour(gen_server).
 
--export([start_link/0, run/0, run/1, runs/1, info/0, debug/0, notice/0, set_loglevel/1]).
+-export([start_link/0, run/0, run/1, run/2, runs/1, info/0, debug/0, notice/0, set_loglevel/1]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
@@ -18,6 +18,7 @@ start_link() ->
 	gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
 run(Test) -> gen_server:call(?MODULE, {run, Test}, infinity).
+run(Test, Repeat) -> gen_server:call(?MODULE, {run, Test, Repeat}, infinity).
 runs(Prefix) -> gen_server:call(?MODULE, {runs, Prefix}, infinity).
 run() -> gen_server:call(?MODULE, {run}, infinity).
 
@@ -43,6 +44,10 @@ handle_info(_Info, S=#state{}) ->
 
 handle_call({run, Test}, _From, S=#state{}) ->
 	run_test(Test),
+	{reply, ok, S};
+
+handle_call({run, Test, Repeat}, _From, S=#state{}) ->
+	[ run_test(Test) || _I <- lists:seq(1, Repeat) ],
 	{reply, ok, S};
 
 handle_call({run}, _From, S=#state{}) ->
