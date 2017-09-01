@@ -152,7 +152,7 @@ cleanup_waiters(Admin, W) ->
 	[ delete(Admin, Value) || Value = {Type, _} <- maps:values(W), Type =/= admin ].
 
 delete(Admin, {group, Group}) -> <<"ok">> = agent:rpc_call(Admin, ws_admin, delete_group, [Group]);
-delete(Admin, {queue, Queue}) -> <<"ok">> = agent:rpc_call(Admin, ws_admin, delete_queue, [Queue]);
+delete(Admin, {queue, [Id, _Queue]}) -> <<"ok">> = agent:rpc_call(Admin, ws_admin, delete_queue, [Id]);
 delete(Admin, {agent, Agent}) -> <<"ok">> = agent:rpc_call(Admin, ws_admin, delete_agent, [Agent]);
 delete(Admin, {profile, Profile}) -> <<"ok">> = agent:rpc_call(Admin, ws_admin, delete_profile, [Profile]);
 delete(_, {admin, _}) -> admin:stop();

@@ -4,7 +4,7 @@
 
 main() ->
 	lager:notice("check a recipe "),
-	Queue = admin:new_queue(#{
+	[_Id, Queue] = admin:new_queue(#{
 		skills => #{ german => true },
 		recipe => [ #{
 			conditions => [ [ticks, '=', 1] ],
