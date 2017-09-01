@@ -9,7 +9,7 @@ main() ->
 	agent:wait_ev(A, LegB, <<"CHANNEL_BRIDGE">>),
 
 	B = test_lib:available(),
-	agent:rpc_call(A, conference_to_agent, [skip, B]),
+	agent:rpc_call(A, conference_to_agent, [B]),
 	[LegC] = agent:wait_for_call(B),
 	ok = call:answer(LegC),
 

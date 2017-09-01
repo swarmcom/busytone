@@ -33,6 +33,17 @@ handle_call({run, Test}, _From, S=#state{}) ->
 		{reply, not_ok, S}
 	end;
 
+handle_call({run, Test, Repeat}, _From, S=#state{}) ->
+	try
+		[ Test:main() || _I <- lists:seq(1, Repeat) ],
+		admin:reset(),
+		{reply, ok, S}
+	catch C:E ->
+		lager:error("~s error:~s", [Test, lager:pr_stacktrace(erlang:get_stacktrace(), {C,E})]),
+		admin:reset(),
+		{reply, not_ok, S}
+	end;
+
 handle_call(_Request, _From, S=#state{}) -> lager:error("unhandled call:~p", [_Request]), {reply, ok, S}.
 
 terminate(_Reason, _S) -> lager:debug("terminate"), ok.

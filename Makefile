@@ -12,6 +12,8 @@ clean-all:
 	rm -rf ~/.cache/rebar3
 	rm -f rebar.lock
 	rm -rf _build/
+	rebar3 update
+	rebar3 local upgrade
 
 dialyzer: 
 	rebar3 dialyzer

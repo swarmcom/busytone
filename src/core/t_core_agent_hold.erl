@@ -7,13 +7,13 @@ main() ->
 	A = test_lib:available(),
 	{LegA, LegB} = ts_core:setup_talk(A),
 	agent:wait_ev(A, LegB, <<"CHANNEL_BRIDGE">>),
-	agent:rpc_call(A, hold_channel, [skip]),
+	agent:rpc_call(A, hold, []),
 
 	agent:wait_ev(A, LegB, <<"CHANNEL_UNBRIDGE">>),
 	agent:wait_ev(A, LegA, <<"CHANNEL_PARK">>),
 	agent:wait_ev(A, LegB, <<"CHANNEL_PARK">>),
 
-	agent:rpc_call(A, unhold_channel, [skip]),
+	agent:rpc_call(A, unhold, []),
 	agent:wait_ev(A, LegB, <<"CHANNEL_BRIDGE">>),
 
 	test_lib:ensureTalking(LegA, LegB),

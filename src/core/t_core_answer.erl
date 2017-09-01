@@ -10,14 +10,14 @@ main() ->
 
 	B = test_lib:available(),
 	test_hup_b(B),
-	wait(fun() -> [#{ <<"state">> := <<"available">> }] = admin:available_agents() end).
+	wait(fun() -> [#{ <<"state">> := <<"available">> }] = admin:agents_queue() end).
 
 setup_talk(A) ->
 	LegA = call_sup:originate(<<"default_queue">>),
 	[LegB] = agent:wait_for_call(A),
 	ok = call:answer(LegB),
 	agent:wait_ev(A, LegB, <<"CHANNEL_BRIDGE">>),
-	wait(fun() -> [#{ <<"login">> := A, <<"uuid">> := LegB, <<"inqueue">> := #{ <<"inqueue_call">> := LegA } }] = admin:call(agents, [oncall]) end),
+	wait(fun() -> [#{ <<"agent_id">> := A, <<"uuid">> := LegB, <<"inqueue">> := #{ <<"inqueue_call">> := LegA } }] = admin:call(agents, [oncall]) end),
 	[#{ <<"state">> := <<"oncall">> }] = admin:call(inqueues, [oncall]),
 	{LegA, LegB}.
 

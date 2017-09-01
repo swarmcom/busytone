@@ -8,7 +8,7 @@
 	new_group/0, new_group/1, get_group/1, update_group/2,
 	rpc_call/2, call/2, wait_ws/1,
 	stop/0, reset/0,
-	available_agents/0
+	agents_queue/0
 ]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
@@ -39,14 +39,14 @@ rpc_call(Cmd, Args) -> gen_server:call(?MODULE, {rpc_call, Cmd, Args}).
 call(Cmd, Args) -> gen_server:call(?MODULE, {rpc_call, ws_admin, Cmd, Args}).
 wait_ws(Mask) -> gen_server:call(?MODULE, {wait_ws, Mask}).
 
-available_agents() -> call(agents, []).
-
 stop() -> gen_server:cast(?MODULE, {stop}).
 reset() -> gen_server:call(?MODULE, {reset}).
 
+agents_queue() -> call(agents, []).
+
 init([{Login, Pass}=_A]) ->
 	lager:info("start, admin:~p", [_A]),
-	Admin = test_lib:login(Login, Pass, Login),
+	Admin = agent_sup:agent(Login, Pass),
 	agent:rpc_call(Admin, ws_admin, reset, []),
 	{ok, #state{user=Admin, watch=#{ erlang:monitor(process, agent:pid(Admin)) => {admin, Admin} }}}.
 
@@ -66,10 +66,9 @@ handle_info(_Info, S=#state{}) ->
 	{noreply, S}.
 
 handle_call({new_agent, Map}, {Pid, _Ref}, S=#state{agent=Id, user=Admin, watch=W}) ->
-	AgentId = <<"test_agent_", (erlang:integer_to_binary(Id))/binary>>,
-	[Login, Password, Number] = agent:rpc_call(Admin, ws_admin, create_agent, [Map#{ id => AgentId }]),
-	Agent = agent_sup:agent(Pid, Login, Password, Number),
-	agent:wait_ws(Agent, #{ <<"agent">> => Agent }),
+	AgentLogin = <<"test_agent_", (erlang:integer_to_binary(Id))/binary>>,
+	[Login, Password] = agent:rpc_call(Admin, ws_admin, create_agent, [Map#{ login => AgentLogin }]),
+	Agent = agent_sup:agent(Pid, Login, Password),
 	{reply, Agent, S#state{agent=Id+1, watch=W#{ erlang:monitor(process, Pid) => {agent, Agent} }}};
 
 handle_call({new_profile, M}, {Pid, _Ref}, S=#state{profile=Id, user=Admin, watch=W}) ->
@@ -119,6 +118,10 @@ handle_call({update_group, Name, Diff}, _, S=#state{user=Admin}) ->
 	Re = agent:rpc_call(Admin, ws_admin, update_group, [Name, Diff]),
 	{reply, Re, S};
 
+handle_call({rpc_call, Module, Cmd, Args}, _, S=#state{user=Admin}) ->
+	Re = agent:rpc_call(Admin, Module, Cmd, Args),
+	{reply, Re, S};
+
 handle_call({rpc_call, Cmd, Args}, _, S=#state{user=Admin}) ->
 	Re = agent:rpc_call(Admin, Cmd, Args),
 	{reply, Re, S};
@@ -140,7 +143,7 @@ handle_call(_Request, _From, S=#state{}) ->
 
 terminate(_Reason, _S=#state{user=Admin, watch=W}) ->
 	lager:info("terminate, reason:~p", [_Reason]),
-	call:hupall(),
+	call:stop(),
 	cleanup_waiters(Admin, W),
 	ok.
 code_change(_OldVsn, S=#state{}, _Extra) -> {ok, S}.

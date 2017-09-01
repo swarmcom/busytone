@@ -7,15 +7,16 @@ main() ->
 	A = admin:new_agent(),
 	[] = admin:call(agents, []),
 	test_lib:available(A),
-	[#{ <<"login">> := A }] = admin:call(agents, []),
-	agent:release(A),
+	[#{ <<"agent_id">> := A }] = admin:call(agents, []),
 
-	[] = admin:call(agents, []),
-	[_Agent1, #{ <<"login">> := A }] = admin:call(agents, [release]),
+	agent:release(A),
+	wait(fun() -> [] = admin:call(agents, []) end),
+
+	[_Agent1, #{ <<"agent_id">> := A }] = admin:call(agents, [release]),
 
 	[] = admin:call(inqueues, []),
 	UUID = call_sup:originate(<<"default_queue">>),
-	wait(fun() -> [#{ <<"uuid">> := UUID }]  = admin:call(inqueues, []) end),
+	wait(fun() -> [#{ <<"uuid">> := UUID }] = admin:call(inqueues, []) end),
 	call:hangup(UUID),
 	call:wait_hangup(UUID),
 	wait(fun() -> [] = admin:call(inqueues, []) end).

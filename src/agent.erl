@@ -6,7 +6,7 @@
 -export([
 	start_link/3, start/3, start/4, pid/1,
 	rpc/3, rpc/4, rpc_call/3, rpc_call/4, available/1, release/1, stop/1,
-	calls/1, wait_for_call/1, on_incoming/2,
+	calls/1, wait_for_login/1, wait_for_call/1, on_incoming/2,
 	wait_ws/4, wait_ws/3, wait_ws/2, wait_ev/3,
 	online/0, by_number/1, ws_debug_filter/2
 ]).
@@ -22,6 +22,7 @@
 	caller_pid,
 	ws_log,
 	wait_for_incoming,
+	wait_for_login,
 	incoming_call,
 	ws_debug_filter = []
 }).
@@ -40,6 +41,15 @@ rpc_call(Agent, Module, Cmd, Args) ->
 	{match, _, #{ <<"reply">> := Re } } = agent:wait_ws(Agent, #{ <<"id">> => MsgId }),
 	Re.
 
+login(Login, Password) ->
+	try
+		M = #{ <<"agent_id">> := _AgentId } = rpc_call(Login, <<"auth">>, [Login, Password]),
+		update(Login, M)
+	catch _:Err ->
+		lager:error("authenticate:~p", [Err]),
+		agent:stop(Login)
+	end.
+
 online() ->
 	Q = qlc:q([ A || {_, _Pid, A=#agent{}} <- gproc:table({l, n}) ]),
 	qlc:e(Q).
@@ -53,16 +63,19 @@ rpc(Id, M, F, A) -> gen_safe:call(Id, fun pid/1, {rpc, M, F, A}).
 calls(Id) -> gen_safe:call(Id, fun pid/1, calls).
 ws_debug_filter(Id, Filter) -> gen_safe:call(Id, fun pid/1, {ws_debug_filter, Filter}).
 wait_for_call(Id) -> gen_safe:call(Id, fun pid/1, wait_for_call).
+wait_for_login(Id) -> gen_safe:call(Id, fun pid/1, wait_for_login).
 on_incoming(Id, UUID) -> gen_safe:call(Id, fun pid/1, {on_incoming, UUID}).
 stop(Id) -> gen_safe:call(Id, fun pid/1, stop).
 available(Id) -> rpc(Id, available, []).
 release(Id) -> rpc(Id, release, []).
+update(Id, Info) -> gen_safe:call(Id, fun pid/1, {update, Info}).
 
 start_link(Host, Port, A=#agent{}) -> gen_server:start_link(?MODULE, [Host, Port, A], []).
 start(Host, Port, A=#agent{}) -> gen_server:start(?MODULE, [Host, Port, A], []).
 start(Pid, Host, Port, A=#agent{}) -> gen_server:start(?MODULE, [Pid, Host, Port, A], []).
 
 % use call timeout as a failsafe
+wait_ws(Id, Ev) when is_binary(Ev) -> wait_ws(Id, #{ <<"event">> => Ev });
 wait_ws(Id, Match) -> wait_ws(Id, Match, 10).
 wait_ws(Id, Match, Depth) -> wait_ws(Id, Match, Depth, 5000).
 wait_ws(Id, Match, Depth, Timeout) ->
@@ -93,8 +106,8 @@ handle_info({gun_down, _Pid, ws, closed, _, _}, S) -> {stop, normal, S};
 
 handle_info({gun_ws_upgrade, _Pid, ok, _Headers}, S=#state{agent=#agent{login=Login, password=Password}}) ->
 	erlang:send_after(30000, self(), ping),
-	Id = msg(<<"auth">>, [Login, Password], S),
-	{noreply, S#state{ws_msg_id=Id+1}};
+	spawn(fun() -> login(Login, Password) end),
+	{noreply, S#state{}};
 handle_info({gun_ws, _Pid, {text, Text}}, S) ->
 	lager:debug("ws in:~s", [Text]),
 	handle_ws_text(jiffy:decode(Text, [return_maps]), S);
@@ -141,6 +154,11 @@ handle_call(wait_for_call, From, S=#state{incoming_call=undefined}) ->
 handle_call(wait_for_call, _From, S=#state{incoming_call={_Ref, UUID}}) ->
 	{reply, [UUID], S#state{wait_for_incoming=undefined, incoming_call=undefined}};
 
+handle_call(wait_for_login, From, S=#state{agent=#agent{agent_id=undefined}}) ->
+	{noreply, S#state{ wait_for_login=From }};
+handle_call(wait_for_login, _From, S=#state{agent=#agent{agent_id=AgentId}}) ->
+	{reply, AgentId, S#state{}};
+
 handle_call({wait_ws, Match, Depth}, From, S=#state{ ws_log = WsLog }) ->
 	case event_log:wait(WsLog, Match, From, Depth) of
 		no_match -> {noreply, S};
@@ -159,6 +177,10 @@ handle_call({rpc, M, F, A}, _, S=#state{}) ->
 
 handle_call({ws_debug_filter, Filter}, _From, S=#state{}) ->
 	{reply, ok, S#state{ ws_debug_filter=Filter }};
+
+handle_call({update, #{ <<"agent_id">> := AgentId, <<"uri">> := Uri }}, _From, S=#state{agent=#agent{}=A}) ->
+	gproc:reg({n, l, {?MODULE, AgentId}}, A),
+	{reply, ok, maybe_notify_caller(S#state{agent=A#agent{agent_id=AgentId, number=Uri}})};
 
 handle_call(_Msg, _From, S=#state{}) ->
 	{reply, ok, S}.
@@ -184,6 +206,11 @@ handle_incoming_call(UUID, S=#state{}) ->
 	call:subscribe(uuid, UUID),
 	{noreply, maybe_notify_waiter(S#state{incoming_call={Ref, UUID}})}.
 
+maybe_notify_caller(S=#state{wait_for_login=undefined}) -> S;
+maybe_notify_caller(S=#state{wait_for_login=Waiter, agent=#agent{agent_id=AgentId}}) ->
+	gen_server:reply(Waiter, AgentId),
+	S#state{wait_for_login=undefined}.
+
 maybe_notify_waiter(S=#state{wait_for_incoming=undefined}) -> S;
 maybe_notify_waiter(S=#state{wait_for_incoming=From, incoming_call={_Ref, UUID}}) ->
 	gen_server:reply(From, [UUID]),
@@ -197,13 +224,13 @@ maybe_debug(#agent{login=Agent}, Msg, true) -> lager:debug("~s ws in ~p", [Agent
 
 msg(F, A, #state{reach=Pid, ws_msg_id=Id, agent=#agent{login=Login}}) ->
 	Text = jiffy:encode(#{ id => Id, type => call, args => [F, A] }),
-	lager:info("~s ws out ~s", [Login, Text]),
+	lager:debug("~s ws out ~s", [Login, Text]),
 	gun:ws_send(Pid, {text, Text}),
 	Id.
 
 msg(M, F, A, #state{reach=Pid, ws_msg_id=Id, agent=#agent{login=Login}}) ->
 	Text = jiffy:encode(#{ id => Id, type => call, args => [M, F, A] }),
-	lager:info("~s ws out ~s", [Login, Text]),
+	lager:debug("~s ws out ~s", [Login, Text]),
 	gun:ws_send(Pid, {text, Text}),
 	Id.
 

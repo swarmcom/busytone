@@ -22,7 +22,7 @@ init(_Args) ->
 		?CHILD(call_sup, [FSURI]),
 		?CHILD(fswitch, [Fs]),
 		?CHILD(agent_sup, [Host, Port]),
-		?CHILD(test_sup, [])
+		?CHILD(test_sup, []),
 		?CHILD(watcher, [{admin, start_link, [Admin]}, 0])
 	],
 	{ok, {SupFlags, ChildSpecs}}.

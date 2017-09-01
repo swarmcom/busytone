@@ -8,7 +8,7 @@ main() ->
 	{LegA, LegB} = ts_core:setup_talk(A),
 	agent:wait_ev(A, LegB, <<"CHANNEL_BRIDGE">>),
 
-	agent:rpc_call(A, conference_to_outband, [skip, <<"external_number">>]),
+	agent:rpc_call(A, conference_to_uri, [<<"external_number">>]),
 	#{ <<"Unique-ID">> := LegC, <<"Caller-Destination-Number">> := <<"external_number">> } = call_sup:wait_call(),
 	ok = call:answer(LegC),
 

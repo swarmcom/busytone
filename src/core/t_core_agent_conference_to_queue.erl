@@ -8,7 +8,7 @@ main() ->
 	{LegA, LegB} = ts_core:setup_talk(A),
 	agent:wait_ev(A, LegB, <<"CHANNEL_BRIDGE">>),
 
-	agent:rpc_call(A, conference_to_queue, [skip, <<"default_queue">>, []]),
+	agent:rpc_call(A, conference_to_queue, [<<"default_queue">>, []]),
 
 	B = test_lib:available(),
 	[LegC] = agent:wait_for_call(B),

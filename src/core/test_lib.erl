@@ -1,6 +1,7 @@
 -module(test_lib).
+-import(ts_core, [wait/1]).
 -export([
-	login/3, available/0, available/1, release/1, hangup/1,
+	available/0, available/1, release/1, hangup/1,
 	answer/1, ensureTalking/2, ensureTalking/3, detect_tone/2, detect_tone_now/2,
 	leave_voicemail/1, leave_voicemail/2, receive_voicemail/0, receive_voicemail/1, vqueue_init/1
 ]).
@@ -35,21 +36,20 @@ receive_voicemail(Agent) ->
 	test_lib:detect_tone(UUID, <<"2600">>),
 	{Agent, UUID}.
 
-login(Login, Password, Number) ->
-	Agent = agent_sup:agent(Login, Password, Number),
-	{_, _, #{ <<"info">> := #{ <<"login">> := Agent }}} = agent:wait_ws(Agent, #{ <<"tag">> => <<"ws_login">> }),
-	Agent.
-
 available() -> available(admin:new_agent()).
 
 available(Agent) ->
 	agent:available(Agent),
-	agent:wait_ws(Agent, #{ <<"command">> => <<"arelease">>, <<"releaseData">> => false }),
+	wait(fun() ->
+		{match, _, #{ <<"info">> := #{ <<"hangup_state">> := <<"available">> } } } = agent:wait_ws(Agent, #{ <<"event">> => <<"agent_state">> })
+	end),
 	Agent.
 
 release(Agent) ->
 	agent:release(Agent),
-	agent:wait_ws(Agent, #{ <<"command">> => <<"arelease">> }),
+	wait(fun() ->
+		{match, _, #{ <<"info">> := #{ <<"state">> := <<"release">> } } } = agent:wait_ws(Agent, #{ <<"event">> => <<"agent_state">> })
+	end),
 	Agent.
 
 detect_tone(UUID, Tone) ->

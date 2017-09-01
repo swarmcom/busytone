@@ -7,7 +7,9 @@ main() ->
 	A = test_lib:available(),
 	ts_core:setup_talk(A),
 	B = test_lib:available(),
-	agent:rpc_call(A, transfer_to_agent, [skip, B]),
+	agent:rpc_call(A, transfer_to_agent, [B]),
 	[UUID] = agent:wait_for_call(B),
+	call:answer(UUID),
+	agent:wait_ev(B, UUID, <<"CHANNEL_BRIDGE">>),
 	call:hangup(UUID),
-	wait(fun() -> [ #{ <<"login">> := A }, #{ <<"login">> := B } ] = admin:available_agents() end).
+	wait(fun() -> [ #{ <<"agent_id">> := A }, #{ <<"agent_id">> := B } ] = admin:agents_queue() end).

@@ -5,11 +5,11 @@
 main() ->
 	lager:notice("check outgoing call works for an agent"),
 	A = test_lib:available(),
-	agent:rpc_call(A, 'ouc.call_outbound', [some_destination]),
+	agent:rpc_call(A, 'call', [some_destination]),
 	[LegA] = agent:wait_for_call(A),
 	ok = call:answer(LegA),
 	#{ <<"Unique-ID">> := LegB, <<"Caller-Destination-Number">> := <<"some_destination">> } = call_sup:wait_call(),
 	ok = call:answer(LegB),
 	test_lib:ensureTalking(LegA, LegB),
 	call:hangup(LegA),
-	wait(fun() -> [ #{ <<"login">> := A } ] = admin:available_agents() end).
+	wait(fun() -> [ #{ <<"agent_id">> := A } ] = admin:agents_queue() end).
