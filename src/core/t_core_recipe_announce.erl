@@ -3,7 +3,7 @@
 -import(ts_core, [wait/1]).
 
 main() ->
-	lager:notice("check a recipe "),
+	lager:notice("check announce call recipe"),
 	[_Id, Queue] = admin:new_queue(#{
 		skills => #{ german => true },
 		recipe => [ #{
