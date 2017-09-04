@@ -40,16 +40,12 @@ available() -> available(admin:new_agent()).
 
 available(Agent) ->
 	agent:available(Agent),
-	wait(fun() ->
-		{match, _, #{ <<"info">> := #{ <<"hangup_state">> := <<"available">> } } } = agent:wait_ws(Agent, #{ <<"event">> => <<"agent_state">> })
-	end),
+	agent:wait_ws(Agent, #{ <<"event">> => <<"agent_state">>, <<"info">> => #{ <<"hangup_state">> => <<"available">> } }),
 	Agent.
 
 release(Agent) ->
 	agent:release(Agent),
-	wait(fun() ->
-		{match, _, #{ <<"info">> := #{ <<"state">> := <<"release">> } } } = agent:wait_ws(Agent, #{ <<"event">> => <<"agent_state">> })
-	end),
+	agent:wait_ws(Agent, #{ <<"event">> => <<"agent_state">>, <<"info">> => #{ <<"hangup_state">> => <<"available">> } }),
 	Agent.
 
 detect_tone(UUID, Tone) ->
