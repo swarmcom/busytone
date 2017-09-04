@@ -1,5 +1,5 @@
 -module(ts_core).
--export([setup_talk/1, setup_talk/2, wait/1]).
+-export([setup_talk/1, setup_talk/2, wait_agent_state/2, wait/1]).
 
 % umbrella module for core tests
 
@@ -11,6 +11,9 @@ setup_talk(Agent, Target) ->
 	ok = call:answer(LegAgent),
 	agent:wait_ev(Agent, LegAgent, <<"CHANNEL_BRIDGE">>),
 	{LegIn, LegAgent}.
+
+wait_agent_state(Agent, State) ->
+	agent:wait_ws(Agent, #{ <<"event">> => <<"agent_state">>, <<"info">> => #{ <<"state">> => State } }, 1).
 
 wait(F) -> maybe_wait(F, 5000).
 
