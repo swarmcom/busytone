@@ -9,7 +9,7 @@ main() ->
 	admin:call(subscribe, [event, <<"CHANNEL_EXECUTE">>]),
 	wait(fun() -> [#{ <<"uuid">> := In, <<"state">> := <<"inqueue">>, <<"record">> := <<"inqueue_call">> }]  = admin:call(inqueues, []) end),
 	call:send_dtmf(In, "*"),
-	admin:wait_ws(#{ <<"Application">> => <<"sleep">>, <<"Unique-ID">> => In }),
+	admin:wait_ws(#{ <<"call_event">> => <<"CHANNEL_EXECUTE">>, <<"vars">> => #{ <<"Application">> => <<"sleep">>, <<"Unique-ID">> => In }}),
 	timer:sleep(2000), % voicemail body
 	call:hangup(In),
 	wait(fun() -> [#{ <<"uuid">> := In, <<"state">> := <<"inqueue">>, <<"record">> := <<"inqueue_vm">> }]  = admin:call(inqueues, []) end),
