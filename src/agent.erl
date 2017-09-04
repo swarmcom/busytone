@@ -1,6 +1,7 @@
 -module(agent).
 -behaviour(gen_server).
 -include_lib("busytone/include/busytone.hrl").
+-include_lib("fswitch/include/fswitch.hrl").
 -include_lib("stdlib/include/qlc.hrl").
 
 -export([
@@ -33,12 +34,12 @@ pid(Login) -> gproc:whereis_name({n, l, {?MODULE, Login}}).
 
 rpc_call(Agent, Cmd, Args) ->
 	MsgId = rpc(Agent, Cmd, Args),
-	{match, _, #{ <<"reply">> := Re } } = agent:wait_ws(Agent, #{ <<"id">> => MsgId }),
+	{match, _, #{ <<"reply">> := Re } } = wait_ws(Agent, #{ <<"id">> => MsgId }),
 	Re.
 
 rpc_call(Agent, Module, Cmd, Args) ->
 	MsgId = rpc(Agent, Module, Cmd, Args),
-	{match, _, #{ <<"reply">> := Re } } = agent:wait_ws(Agent, #{ <<"id">> => MsgId }),
+	{match, _, #{ <<"reply">> := Re } } = wait_ws(Agent, #{ <<"id">> => MsgId }),
 	Re.
 
 login(Login, Password) ->
@@ -81,7 +82,7 @@ wait_ws(Id, Match, Depth) -> wait_ws(Id, Match, Depth, 5000).
 wait_ws(Id, Match, Depth, Timeout) ->
 	gen_safe:call(Id, fun pid/1, {wait_ws, Match, Depth}, Timeout).
 
-wait_ev(Id, UUID, Ev) -> wait_ws(Id, #{<<"event">> => Ev, <<"uuid">> => UUID }, 100).
+wait_ev(Id, UUID, Ev) -> wait_ws(Id, #{<<"call_event">> => Ev, <<"uuid">> => UUID }, 100).
 
 % this clause is to link with caller process of fun call_sup:originate
 init([Pid, Host, Port, A=#agent{}]) ->
@@ -125,11 +126,10 @@ handle_info({'DOWN', _Ref, process, Pid, _Reason}, S=#state{agent=#agent{login=A
 	lager:debug("~s incoming call pid:~p is down", [Agent, Pid]),
 	{noreply, S};
 
-handle_info({call, UUID, #{ <<"Caller-Destination-Number">> := Number, <<"Caller-Logical-Direction">> := <<"inbound">> }}, S=#state{ agent=#agent{ number = Number }}) ->
+handle_info(#call_event{uuid=UUID, vars=#{
+	<<"Caller-Destination-Number">> := Number, <<"Caller-Logical-Direction">> := <<"inbound">> }}, S=#state{ agent=#agent{ number = Number }}) ->
 	handle_incoming_call(UUID, S);
-handle_info({call, _, _}, S=#state{}) -> {noreply, S};
-
-handle_info({call, _}, S=#state{}) -> {noreply, S};
+handle_info(#call_event{}, S=#state{}) -> {noreply, S};
 
 handle_info({gun_ws, _Pid, {close, _, _}}, S) ->
 	{stop, normal, S};
