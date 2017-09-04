@@ -4,7 +4,6 @@ BusyTone TODO
 ## On
 
 1. Automate channel counter on agent answer?
-2. when a call is hung up, the client get notification message (endchannel) with next-channel?
 
 ## Other
 

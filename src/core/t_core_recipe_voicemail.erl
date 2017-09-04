@@ -3,13 +3,11 @@
 -import(ts_core, [wait/1]).
 
 main() ->
-	lager:notice("check a recipe "),
+	lager:notice("check voicemail recipe works after one second"),
 	[_Id, Queue] = admin:new_queue(#{
-		skills => #{ german => true },
 		recipe => [ #{
 			conditions => [ [ticks, '=', 1] ],
-			operations => [ [voicemail ] ],
-			comment => <<"test">>
+			operations => [ [voicemail ] ]
 		}]
 	}),
 	UUID = call_sup:originate(Queue),
@@ -18,4 +16,14 @@ main() ->
 
 	ok = call:detect_tone(UUID, "500"),
 	call:wait_event(UUID, <<"DETECTED_TONE">>),
-	ok = call:hangup(UUID).
+	timer:sleep(2000), % voicemail body
+	ok = call:hangup(UUID),
+	wait(fun() -> [#{ <<"uuid">> := UUID, <<"state">> := <<"inqueue">>, <<"record">> := <<"inqueue_vm">> }]  = admin:call(inqueues, []) end),
+
+	% receive it
+	Agent = test_lib:available(),
+	[LegA] = agent:wait_for_call(Agent),
+	ok = call:answer(LegA),
+	call:wait_event(LegA, <<"CHANNEL_ANSWER">>),
+	call:wait_hangup(LegA),
+	wait(fun() -> []  = admin:call(inqueues, []) end).
