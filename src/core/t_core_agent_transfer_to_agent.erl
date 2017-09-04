@@ -4,8 +4,11 @@
 
 main() ->
 	lager:notice("agent can transfer a call to another agent"),
+	[_Id, Queue] = admin:new_queue(#{
+		wrapup_enabled => false
+	}),
 	A = test_lib:available(),
-	ts_core:setup_talk(A),
+	ts_core:setup_talk(A, Queue),
 	B = test_lib:available(),
 	agent:rpc_call(A, transfer_to_agent, [B]),
 	[UUID] = agent:wait_for_call(B),
