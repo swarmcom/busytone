@@ -1,14 +1,16 @@
 -module(ts_core).
--export([setup_talk/1, wait/1]).
+-export([setup_talk/1, setup_talk/2, wait/1]).
 
 % umbrella module for core tests
 
-setup_talk(Agent) ->
-	LegA = call_sup:originate(<<"default_queue">>),
-	[LegB] = agent:wait_for_call(Agent),
-	ok = call:answer(LegB),
-	agent:wait_ev(Agent, LegB, <<"CHANNEL_BRIDGE">>),
-	{LegA, LegB}.
+setup_talk(Agent) -> setup_talk(Agent, <<"default_queue">>).
+
+setup_talk(Agent, Target) ->
+	LegIn = call_sup:originate(Target),
+	[LegAgent] = agent:wait_for_call(Agent),
+	ok = call:answer(LegAgent),
+	agent:wait_ev(Agent, LegAgent, <<"CHANNEL_BRIDGE">>),
+	{LegIn, LegAgent}.
 
 wait(F) -> maybe_wait(F, 5000).
 
