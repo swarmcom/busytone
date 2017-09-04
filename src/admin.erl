@@ -133,9 +133,8 @@ handle_call({wait_ws, Mask}, _, S=#state{user=Admin}) ->
 handle_call({reset}, _, #state{user=Admin, watch=W}) ->
 	agent:rpc_call(Admin, ws_admin, reset, []),
 	call:hupall(),
-	cleanup_waiters(Admin, W),
 	ts_core:wait(fun() -> [] = call:active() end),
-	{reply, ok, #state{user=Admin}};
+	{reply, ok, #state{user=Admin, watch=W}};
 
 handle_call(_Request, _From, S=#state{}) ->
 	lager:error("unhandled call:~p", [_Request]),
