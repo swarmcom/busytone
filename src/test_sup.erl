@@ -43,25 +43,25 @@ handle_info(_Info, S=#state{}) ->
 	{noreply, S}.
 
 handle_call({run, Test}, _From, S=#state{}) ->
-	run_test(Test),
-	{reply, ok, S};
+	Re = run_test(Test),
+	{reply, Re, S};
 
 handle_call({run, Test, N}, _From, S=#state{}) ->
-	run_test(Test, N),
-	{reply, ok, S};
+	Re = run_test(Test, N),
+	{reply, Re, S};
 
 handle_call({run}, _From, S=#state{}) ->
 	AllMods = [ erlang:atom_to_list(Module) || {Module, _} <- code:all_loaded() ],
 	TestMods = [ erlang:list_to_atom(Module) || Module <- AllMods, is_test(Module) ],
-	notice(), run_test(shuffle(TestMods)), info(),
-	{reply, ok, S};
+	notice(), Re = run_test(shuffle(TestMods)), info(),
+	{reply, Re, S};
 
 handle_call({runs, Pfx}, _From, S=#state{}) ->
 	AllMods = [ erlang:atom_to_list(Module) || {Module, _} <- code:all_loaded() ],
 	Prefix = erlang:atom_to_list(Pfx),
 	TestMods = [ erlang:list_to_atom(Module) || Module <- AllMods, is_test(Module, Prefix) ],
-	notice(), run_test(TestMods), info(),
-	{reply, ok, S};
+	notice(), Re = run_test(TestMods), info(),
+	{reply, Re, S};
 
 handle_call(_Request, _From, S=#state{}) ->
 	lager:error("unhandled call:~p", [_Request]),
@@ -71,14 +71,15 @@ terminate(_Reason, _S) ->
 	ok.
 code_change(_OldVsn, S=#state{}, _Extra) -> {ok, S}.
 
-run_test(T, N) when is_number(N) -> [ run_test(T) || _I <- lists:seq(1, N) ].
+run_test(T, N) when is_number(N) -> [ {run_test(T), I} || I <- lists:seq(1, N) ].
 run_test(T) when is_list(T) -> [ run_test(Test) || Test <- T ];
 run_test(Test) ->
 	{ok, Pid} = test_run:start_link(),
 	lager:notice("~p is running...", [Test]),
 	Re = handle_re(test_run:run(Pid, Test)),
 	log_result(Test, Re),
-	test_run:stop(Pid).
+	test_run:stop(Pid),
+	{Test, Re}.
 
 shuffle(L) ->
 	[ X || {_, X} <- lists:sort([ {rand:uniform(), N} || N <- L]) ].
