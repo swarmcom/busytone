@@ -7,5 +7,5 @@ main() ->
 	Agent = admin:new_agent(#{ ring_timeout => 1, max_ring_fails => 1 }),
 	test_lib:available(Agent),
 	ts_core:wait_agent_state(Agent, <<"available">>),
-	call_sup:originate(<<"default_queue">>),
+	test_lib:originate(<<"default_queue">>),
 	ts_core:wait_agent_state(Agent, <<"release">>).

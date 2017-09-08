@@ -15,7 +15,7 @@ main() ->
 	[_Agent1, #{ <<"agent_id">> := A }] = admin:call(agents, [release]),
 
 	[] = admin:call(inqueues, []),
-	UUID = call_sup:originate(<<"default_queue">>),
+	UUID = test_lib:originate(<<"default_queue">>),
 	wait(fun() -> [#{ <<"uuid">> := UUID }] = admin:call(inqueues, []) end),
 	call:hangup(UUID),
 	call:wait_hangup(UUID),

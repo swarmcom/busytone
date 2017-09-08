@@ -1,20 +1,24 @@
 -module(test_lib).
 -import(ts_core, [wait/1]).
 -export([
-	available/0, available/1, release/1, hangup/1,
+	available/0, available/1, release/1, hangup/1, originate/1,
 	answer/1, ensureTalking/2, ensureTalking/3, detect_tone/2, detect_tone_now/2,
 	leave_voicemail/1, leave_voicemail/2, receive_voicemail/0, receive_voicemail/1, vqueue_init/1
 ]).
 
 % utility functions to automate tests
 
+originate(Target) ->
+	UUID = call_sup:originate(Target),
+	call:wait(UUID).
+
 vqueue_init(Queue) ->
-	{ok, UUID} = call_sup:originate(Queue),
+	{ok, UUID} = test_lib:originate(Queue),
 	hangup(UUID),
 	Queue.
 
 leave_voicemail(Queue) ->
-	{ok, VmCall} = call_sup:originate(Queue),
+	{ok, VmCall} = test_lib:originate(Queue),
 	leave_voicemail(VmCall, call).
 
 leave_voicemail(VmCall, call) ->

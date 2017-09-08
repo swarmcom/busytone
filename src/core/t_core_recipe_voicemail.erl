@@ -10,7 +10,7 @@ main() ->
 			operations => [ [voicemail ] ]
 		}]
 	}),
-	UUID = call_sup:originate(Queue),
+	UUID = test_lib:originate(Queue),
 	admin:call(subscribe, [uuid, UUID]),
 	wait(fun() -> [#{ <<"uuid">> := UUID, <<"state">> := <<"inqueue">>, <<"record">> := <<"inqueue_call">> }]  = admin:call(inqueues, []) end),
 

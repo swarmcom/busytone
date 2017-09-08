@@ -7,7 +7,7 @@ main() ->
 	[_Id, Queue] = admin:new_queue(#{
 		hold_music => "tone_stream://%(500,0,1600);loops=-1"
 	}),
-	UUID = call_sup:originate(Queue),
+	UUID = test_lib:originate(Queue),
 
 	ok = call:detect_tone(UUID, "1600"),
 	call:wait_event(UUID, <<"DETECTED_TONE">>),

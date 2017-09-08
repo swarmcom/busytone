@@ -4,7 +4,7 @@
 
 main() ->
 	lager:notice("check inqueue record is bound to call"),
-	A = call_sup:originate(<<"default_queue">>),
+	A = test_lib:originate(<<"default_queue">>),
 	wait(fun() -> [#{ <<"uuid">> := A, <<"state">> := <<"inqueue">> }] = admin:call(inqueues, []) end),
 	call:hangup(A),
 	call:wait_hangup(A),

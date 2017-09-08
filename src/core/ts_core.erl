@@ -6,7 +6,7 @@
 setup_talk(Agent) -> setup_talk(Agent, <<"default_queue">>).
 
 setup_talk(Agent, Target) ->
-	LegIn = call_sup:originate(Target),
+	LegIn = test_lib:originate(Target),
 	[LegAgent] = agent:wait_for_call(Agent),
 	ok = call:answer(LegAgent),
 	agent:wait_ev(Agent, LegAgent, <<"CHANNEL_BRIDGE">>),
