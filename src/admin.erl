@@ -18,7 +18,7 @@
 start_link(Admin) ->
 	gen_server:start_link({local, ?MODULE}, ?MODULE, [Admin], []).
 
-new_agent() -> new_agent(#{ skills => #{ english => true } }).
+new_agent() -> new_agent(#{}).
 new_agent(M) -> gen_server:call(?MODULE, {new_agent, M}).
 new_profile() -> new_profile(#{}).
 new_profile(M) -> gen_server:call(?MODULE, {new_profile, M}).
