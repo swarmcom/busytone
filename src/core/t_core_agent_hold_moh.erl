@@ -4,9 +4,10 @@
 
 main() ->
 	lager:notice("agent can hold a call and then bridge back"),
-	[_Id, Queue] = admin:new_queue(#{
+	[Id, Queue] = admin:new_queue(#{
 		hold_music => "tone_stream://%(500,0,1600);loops=-1"
 	}),
+	_LineIn = admin:new_line_in(#{ queue_id => Id, number => Queue }),
 	A = test_lib:available(),
 	{LegIn, LegB} = ts_core:setup_talk(A, Queue),
 	agent:wait_ev(A, LegB, <<"CHANNEL_BRIDGE">>),

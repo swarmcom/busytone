@@ -4,12 +4,13 @@
 
 main() ->
 	lager:notice("check voicemail recipe works after one second"),
-	[_Id, Queue] = admin:new_queue(#{
+	[Id, Queue] = admin:new_queue(#{
 		recipe => [ #{
 			conditions => [ [ticks, '=', 1] ],
 			operations => [ [voicemail ] ]
 		}]
 	}),
+	_LineIn = admin:new_line_in(#{ queue_id => Id, number => Queue }),
 	UUID = test_lib:originate(Queue),
 	admin:call(subscribe, [uuid, UUID]),
 	wait(fun() -> [#{ <<"uuid">> := UUID, <<"state">> := <<"inqueue">>, <<"record">> := <<"inqueue_call">> }]  = admin:call(inqueues, []) end),

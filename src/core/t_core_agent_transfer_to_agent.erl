@@ -4,9 +4,10 @@
 
 main() ->
 	lager:notice("agent can transfer a call to another agent"),
-	[_Id, Queue] = admin:new_queue(#{
+	[Id, Queue] = admin:new_queue(#{
 		wrapup_enabled => false
 	}),
+	_LineIn = admin:new_line_in(#{ queue_id => Id, number => Queue }),
 	A = test_lib:available(),
 	ts_core:setup_talk(A, Queue),
 	B = test_lib:available(),

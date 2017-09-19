@@ -4,9 +4,10 @@
 
 main() ->
 	lager:notice("agent goes to wrapup state if enabled by queue"),
-	[_Id, Queue] = admin:new_queue(#{
+	[Id, Queue] = admin:new_queue(#{
 		wrapup_enabled => true
 	}),
+	_LineIn = admin:new_line_in(#{ queue_id => Id, number => Queue }),
 	Agent = test_lib:available(),
 	{LegIn, LegB} = ts_core:setup_talk(Agent, Queue),
 	call:hangup(LegIn),
