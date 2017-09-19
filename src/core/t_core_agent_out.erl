@@ -4,11 +4,17 @@
 
 main() ->
 	lager:notice("check outgoing call works for an agent"),
-	A = test_lib:available(),
+	LineId = admin:new_line(#{ number => <<"caller_number">> }),
+	A = test_lib:available(admin:new_agent(#{ line_id => LineId })),
 	agent:rpc_call(A, 'call', [some_destination]),
 	[LegA] = agent:wait_for_call(A),
 	ok = call:answer(LegA),
-	#{ <<"Unique-ID">> := LegB, <<"Caller-Destination-Number">> := <<"some_destination">> } = call_sup:wait_call(),
+	#{
+		<<"Unique-ID">> := LegB,
+		<<"Caller-Destination-Number">> := <<"some_destination">>,
+		<<"Caller-Caller-ID-Number">> := <<"caller_number">>,
+		<<"Caller-Caller-ID-Name">> := <<"caller_number">>
+	} = call_sup:wait_call(),
 	ok = call:answer(LegB),
 	test_lib:ensureTalking(LegA, LegB),
 	call:hangup(LegA),

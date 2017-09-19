@@ -6,6 +6,7 @@
 	get_profile/1, new_profile/0, new_profile/1, update_profile/2,
 	new_queue/0, new_queue/1, get_queue/1, update_queue/2,
 	new_group/0, new_group/1, get_group/1, update_group/2,
+	new_line/0, new_line/1,
 	rpc_call/2, call/2, wait_ws/1,
 	stop/0, reset/0,
 	agents_queue/0
@@ -13,7 +14,7 @@
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
--record(state, {user, agent=1, profile=1, queue=1, group=1, watch=#{}}).
+-record(state, {user, agent=1, profile=1, queue=1, group=1, line=1, watch=#{}}).
 
 start_link(Admin) ->
 	gen_server:start_link({local, ?MODULE}, ?MODULE, [Admin], []).
@@ -26,6 +27,9 @@ new_queue() -> new_queue(#{}).
 new_queue(M) -> gen_server:call(?MODULE, {new_queue, M}).
 new_group() -> new_group(#{}).
 new_group(M) -> gen_server:call(?MODULE, {new_group, M}).
+new_line() -> new_line(#{}).
+new_line(M) -> gen_server:call(?MODULE, {new_line, M}).
+
 get_agent(Login) -> gen_server:call(?MODULE, {get_agent, Login}).
 get_profile(Name) -> gen_server:call(?MODULE, {get_profile, Name}).
 get_queue(Name) -> gen_server:call(?MODULE, {get_queue, Name}).
@@ -34,6 +38,7 @@ update_agent(Login, Props) -> gen_server:call(?MODULE, {update_agent, Login, Pro
 update_profile(Name, Props) -> gen_server:call(?MODULE, {update_profile, Name, Props}).
 update_queue(Name, Props) -> gen_server:call(?MODULE, {update_queue, Name, Props}).
 update_group(Name, Props) -> gen_server:call(?MODULE, {update_group, Name, Props}).
+
 
 rpc_call(Cmd, Args) -> gen_server:call(?MODULE, {rpc_call, Cmd, Args}).
 call(Cmd, Args) -> gen_server:call(?MODULE, {rpc_call, ws_admin, Cmd, Args}).
@@ -70,6 +75,11 @@ handle_call({new_agent, Map}, {Pid, _Ref}, S=#state{agent=Id, user=Admin, watch=
 	[Login, Password] = agent:rpc_call(Admin, ws_admin, create_agent, [Map#{ login => AgentLogin }]),
 	Agent = agent_sup:agent(Pid, Login, Password),
 	{reply, Agent, S#state{agent=Id+1, watch=W#{ erlang:monitor(process, Pid) => {agent, Agent} }}};
+
+handle_call({new_line, Map}, {Pid, _Ref}, S=#state{line=Id, user=Admin, watch=W}) ->
+	Name = <<"test_line_", (erlang:integer_to_binary(Id))/binary>>,
+	Line = agent:rpc_call(Admin, ws_admin, create_line_out, [Map#{ name => Name }]),
+	{reply, Line, S#state{line=Id+1, watch=W#{ erlang:monitor(process, Pid) => {line, Line} }}};
 
 handle_call({new_profile, M}, {Pid, _Ref}, S=#state{profile=Id, user=Admin, watch=W}) ->
 	ProfileId = <<"test_profile_", (erlang:integer_to_binary(Id))/binary>>,
@@ -154,5 +164,6 @@ delete(Admin, {group, Group}) -> <<"ok">> = agent:rpc_call(Admin, ws_admin, dele
 delete(Admin, {queue, [Id, _Queue]}) -> <<"ok">> = agent:rpc_call(Admin, ws_admin, delete_queue, [Id]);
 delete(Admin, {agent, Agent}) -> <<"ok">> = agent:rpc_call(Admin, ws_admin, delete_agent, [Agent]);
 delete(Admin, {profile, Profile}) -> <<"ok">> = agent:rpc_call(Admin, ws_admin, delete_profile, [Profile]);
+delete(Admin, {line, Line}) -> <<"ok">> = agent:rpc_call(Admin, ws_admin, delete_line_out, [Line]);
 delete(_, {admin, _}) -> admin:stop();
 delete(_, undefined) -> skip.
