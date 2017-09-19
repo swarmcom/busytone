@@ -1,4 +1,4 @@
--module(t_core_agent_transfer_to_uri).
+-module(t_core_agent_transfer_to_outgoing).
 -export([main/0]).
 -import(ts_core, [wait/1]).
 
