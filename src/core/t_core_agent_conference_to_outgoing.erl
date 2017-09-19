@@ -4,7 +4,8 @@
 
 main() ->
 	lager:notice("agent can setup a conference call with a queue"),
-	A = test_lib:available(),
+	LineId = admin:new_line(#{ number => <<"caller_number">> }),
+	A = test_lib:available(admin:new_agent(#{ line_id => LineId })),
 	{LegA, LegB} = ts_core:setup_talk(A),
 	agent:wait_ev(A, LegB, <<"CHANNEL_BRIDGE">>),
 
