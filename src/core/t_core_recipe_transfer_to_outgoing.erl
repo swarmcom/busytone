@@ -16,5 +16,7 @@ main() ->
 	UUID = test_lib:originate(Queue),
 	#{ <<"Unique-ID">> := UUID, <<"Caller-Destination-Number">> := Queue } = call_sup:wait_call(),
 	#{ <<"Unique-ID">> := Out, <<"Caller-Destination-Number">> := <<"4000">> } = call_sup:wait_call(),
-	call:wait_hangup(Out),
+	call:answer(Out),
+	test_lib:ensureTalking(UUID, Out),
+	call:hangup(Out),
 	call:hangup(UUID).
