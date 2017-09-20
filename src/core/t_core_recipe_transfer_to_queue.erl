@@ -1,4 +1,4 @@
--module(t_core_recipe_transfer).
+-module(t_core_recipe_transfer_to_queue).
 -export([main/0]).
 -import(ts_core, [wait/1]).
 
