@@ -44,7 +44,7 @@ rpc_call(Agent, Module, Cmd, Args) ->
 
 login(Login, Password) ->
 	try
-		M = #{ <<"agent_id">> := _AgentId } = rpc_call(Login, <<"auth">>, [Login, Password]),
+		M = #{ <<"id">> := _AgentId } = rpc_call(Login, <<"auth">>, [Login, Password]),
 		update(Login, M)
 	catch _:Err ->
 		lager:error("authenticate:~p", [Err]),
@@ -178,7 +178,7 @@ handle_call({rpc, M, F, A}, _, S=#state{}) ->
 handle_call({ws_debug_filter, Filter}, _From, S=#state{}) ->
 	{reply, ok, S#state{ ws_debug_filter=Filter }};
 
-handle_call({update, #{ <<"agent_id">> := AgentId, <<"uri">> := Uri }}, _From, S=#state{agent=#agent{}=A}) ->
+handle_call({update, #{ <<"id">> := AgentId, <<"uri">> := Uri }}, _From, S=#state{agent=#agent{}=A}) ->
 	gproc:reg({n, l, {?MODULE, AgentId}}, A),
 	{reply, ok, maybe_notify_caller(S#state{agent=A#agent{agent_id=AgentId, number=Uri}})};
 
