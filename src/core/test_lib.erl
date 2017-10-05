@@ -44,12 +44,12 @@ available() -> available(admin:new_agent()).
 
 available(Agent) ->
 	agent:available(Agent),
-	agent:wait_ws(Agent, #{ <<"event">> => <<"agent_state">>, <<"info">> => #{ <<"hangup_state">> => <<"available">> } }),
+	agent:wait_ws(Agent, #{ <<"event">> => <<"agent_state">>, <<"state">> => #{ <<"hangup_state">> => <<"available">> } }),
 	Agent.
 
 release(Agent) ->
 	agent:release(Agent),
-	agent:wait_ws(Agent, #{ <<"event">> => <<"agent_state">>, <<"info">> => #{ <<"hangup_state">> => <<"available">> } }),
+	agent:wait_ws(Agent, #{ <<"event">> => <<"agent_state">>, <<"state">> => #{ <<"hangup_state">> => <<"available">> } }),
 	Agent.
 
 detect_tone(UUID, Tone) ->

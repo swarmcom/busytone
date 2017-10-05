@@ -13,7 +13,7 @@ setup_talk(Agent, Target) ->
 	{LegIn, LegAgent}.
 
 wait_agent_state(Agent, State) ->
-	agent:wait_ws(Agent, #{ <<"event">> => <<"agent_state">>, <<"info">> => #{ <<"state">> => State } }, 1).
+	agent:wait_ws(Agent, #{ <<"event">> => <<"agent_state">>, <<"state">> => #{ <<"state">> => State } }, 1).
 
 wait(F) -> maybe_wait(F, 5000).
 
