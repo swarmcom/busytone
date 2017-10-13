@@ -44,7 +44,7 @@ rpc_call(Agent, Module, Cmd, Args) ->
 
 login(Login, Password) ->
 	try
-		M = #{ <<"id">> := _AgentId } = rpc_call(Login, <<"auth">>, [Login, Password]),
+		M = #{ <<"id">> := _AgentId } = rpc_call(Login, <<"auth">>, [Login, Password, false]),
 		update(Login, M)
 	catch _:Err ->
 		lager:error("authenticate:~p", [Err]),
