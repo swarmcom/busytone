@@ -5,10 +5,7 @@
 main() ->
 	lager:notice("admin api: create queue and place a call"),
 
-	ClientId = admin:create(client),
-	QueueId = admin:create(queue),
-	LineInId = admin:create(line_in, #{ client_id => ClientId, queue_id => QueueId }),
-	admin:create(dial, #{ match => <<".*">>, line_in_id => LineInId, header => <<"Caller-Destination-Number">> }),
+	ts_core:dial_in(),
 
 	UUID = test_lib:originate(<<"match">>),
 	wait(fun() -> [#{ <<"uuid">> := UUID }] = admin:call(inqueues, []) end),

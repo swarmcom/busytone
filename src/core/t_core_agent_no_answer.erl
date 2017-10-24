@@ -4,8 +4,10 @@
 
 main() ->
 	lager:notice("available agent goes to release state after no-answer"),
-	Agent = admin:new_agent(#{ ring_timeout => 1, max_ring_fails => 1 }),
-	test_lib:available(Agent),
-	ts_core:wait_agent_state(Agent, <<"available">>),
-	test_lib:originate(<<"default_queue">>),
-	ts_core:wait_agent_state(Agent, <<"release">>).
+	ts_make:dial_in(),
+	AgentId = admin:create(agent, #{ ring_timeout => 1, max_ring_fails => 1 }),
+	ts_core:available(AgentId),
+	ts_core:wait_agent_state(AgentId, <<"available">>),
+
+	ts_make:call(whatever),
+	ts_core:wait_agent_state(AgentId, <<"release">>).

@@ -1,5 +1,6 @@
 -module(ts_core).
 -export([setup_talk/1, setup_talk/2, wait_agent_state/2, wait/1]).
+-export([release/1, available/1, ensure_talking/2, ensure_talking/3]).
 
 % umbrella module for core tests
 
@@ -26,3 +27,20 @@ maybe_wait(F, T) ->
 			timer:sleep(100),
 			maybe_wait(F, T-100)
 	end.
+
+available(AgentId) ->
+	agent:available(AgentId),
+	agent:wait_ws(AgentId, #{ <<"event">> => <<"agent_state">>, <<"state">> => #{ <<"hangup_state">> => <<"available">> } }),
+	AgentId.
+
+release(AgentId) ->
+	agent:release(AgentId),
+	agent:wait_ws(AgentId, #{ <<"event">> => <<"agent_state">>, <<"state">> => #{ <<"hangup_state">> => <<"available">> } }),
+	AgentId.
+
+ensure_talking(UUID1, UUID2) -> ensure_talking(UUID1, UUID2, 5000).
+ensure_talking(UUID1, UUID2, Timeout) ->
+	call:execute(UUID1, "playback", "tone_stream://%(3000, 0, 2600)"),
+	call:detect_tone(UUID2, "2600"),
+	call:wait_event(UUID2, #{ <<"Event-Name">> => <<"DETECTED_TONE">> }, Timeout),
+	call:stop_detect_tone(UUID2).

@@ -3,9 +3,10 @@
 -import(ts_core, [wait/1]).
 
 main() ->
-	lager:notice("check inqueue record is bound to call"),
-	A = test_lib:originate(<<"default_queue">>),
-	wait(fun() -> [#{ <<"uuid">> := A, <<"state">> := <<"inqueue">> }] = admin:call(inqueues, []) end),
-	call:hangup(A),
-	call:wait_hangup(A),
+	lager:notice("inqueue process dies with call"),
+	ts_make:dial_in(),
+	UUID = ts_make:call(whatever),
+	wait(fun() -> [#{ <<"uuid">> := UUID, <<"state">> := <<"inqueue">> }] = admin:call(inqueues, []) end),
+	call:hangup(UUID),
+	call:wait_hangup(UUID),
 	wait(fun() -> [] = admin:call(inqueues, [all]) end).

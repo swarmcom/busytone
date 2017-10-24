@@ -3,9 +3,10 @@
 -import(ts_core, [wait/1]).
 
 main() ->
-	lager:notice("agent can place a call to default queue"),
-	A = test_lib:available(),
-	{LegA, LegB} = ts_core:setup_talk(A),
-	agent:wait_ev(A, LegB, <<"CHANNEL_BRIDGE">>),
-	call:hangup(LegA),
-	call:wait_hangup(LegB).
+	lager:notice("agent can place a call to a queue and receive it"),
+	ts_make:dial_in(),
+	AgentId = ts_make:agent(),
+	{LegIn, LegAgent} = ts_make:call_bridged(AgentId, target),
+	agent:wait_ev(AgentId, LegAgent, <<"CHANNEL_BRIDGE">>),
+	call:hangup(LegAgent),
+	call:wait_hangup(LegIn).
