@@ -6,7 +6,7 @@
 
 -export([
 	start_link/3, start/3, start/4, pid/1,
-	rpc/3, rpc/4, rpc_call/3, rpc_call/4, available/1, release/1, stop/1,
+	rpc/4, call/4, available/1, release/1, stop/1,
 	calls/1, wait_for_login/1, wait_for_call/1, on_incoming/2,
 	wait_ws/4, wait_ws/3, wait_ws/2, wait_ev/3,
 	online/0, by_number/1, ws_debug_filter/2
@@ -32,19 +32,14 @@
 
 pid(Login) -> gproc:whereis_name({n, l, {?MODULE, Login}}).
 
-rpc_call(Agent, Cmd, Args) ->
-	MsgId = rpc(Agent, Cmd, Args),
-	{match, _, #{ <<"reply">> := Re } } = wait_ws(Agent, #{ <<"id">> => MsgId }),
-	Re.
-
-rpc_call(Agent, Module, Cmd, Args) ->
+call(Agent, Module, Cmd, Args) ->
 	MsgId = rpc(Agent, Module, Cmd, Args),
 	{match, _, #{ <<"reply">> := Re } } = wait_ws(Agent, #{ <<"id">> => MsgId }),
 	Re.
 
 login(Login, Password) ->
 	try
-		M = #{ <<"id">> := _AgentId } = rpc_call(Login, <<"auth">>, [Login, Password, false]),
+		M = #{ <<"id">> := _AgentId } = call(Login, ws_agent, auth, [Login, Password, false]),
 		update(Login, M)
 	catch _:Err ->
 		lager:error("authenticate:~p", [Err]),
@@ -59,7 +54,7 @@ by_number(Number) ->
 	Q = qlc:q([ Login || {_, _Pid, #agent{login=Login, number=N}} <- gproc:table({l, n}), N =:= Number ]),
 	qlc:e(Q).
 
-rpc(Id, F, A) -> gen_safe:call(Id, fun pid/1, {rpc, F, A}).
+rpc(Id, F, A) -> rpc(Id, ws_agent, F, A).
 rpc(Id, M, F, A) -> gen_safe:call(Id, fun pid/1, {rpc, M, F, A}).
 calls(Id) -> gen_safe:call(Id, fun pid/1, calls).
 ws_debug_filter(Id, Filter) -> gen_safe:call(Id, fun pid/1, {ws_debug_filter, Filter}).
@@ -167,10 +162,6 @@ handle_call({wait_ws, Match, Depth}, From, S=#state{ ws_log = WsLog }) ->
 handle_call(stop, _, S=#state{}) ->
 	{stop, normal, ok, S};
 
-handle_call({rpc, F, A}, _, S=#state{}) ->
-	Id = msg(F, A, S),
-	{reply, Id, S#state{ws_msg_id = Id + 1}};
-
 handle_call({rpc, M, F, A}, _, S=#state{}) ->
 	Id = msg(M, F, A, S),
 	{reply, Id, S#state{ws_msg_id = Id + 1}};
@@ -183,6 +174,7 @@ handle_call({update, #{ <<"id">> := AgentId, <<"uri">> := Uri }}, _From, S=#stat
 	{reply, ok, maybe_notify_caller(S#state{agent=A#agent{agent_id=AgentId, number=Uri}})};
 
 handle_call(_Msg, _From, S=#state{}) ->
+	lager:error("unhandled call:~p", [_Msg]),
 	{reply, ok, S}.
 
 handle_cast(_Msg, S=#state{}) -> {noreply, S}.
@@ -221,12 +213,6 @@ maybe_debug(_Agent, Msg = #{ <<"event">> := Event }, Filter) when is_list(Filter
 maybe_debug(_Agent, Msg, Filter) when is_list(Filter) -> maybe_debug(_Agent, Msg, true);
 maybe_debug(_Agent, _Msg, false) -> skip;
 maybe_debug(#agent{login=Agent}, Msg, true) -> lager:debug("~s ws in ~p", [Agent, Msg]).
-
-msg(F, A, #state{reach=Pid, ws_msg_id=Id, agent=#agent{login=Login}}) ->
-	Text = jiffy:encode(#{ id => Id, type => call, args => [F, A] }),
-	lager:debug("~s ws out ~s", [Login, Text]),
-	gun:ws_send(Pid, {text, Text}),
-	Id.
 
 msg(M, F, A, #state{reach=Pid, ws_msg_id=Id, agent=#agent{login=Login}}) ->
 	Text = jiffy:encode(#{ id => Id, type => call, args => [M, F, A] }),

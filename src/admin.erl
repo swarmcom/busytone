@@ -2,47 +2,34 @@
 -behaviour(gen_server).
 
 -export([start_link/1,
-	new_agent/0, new_agent/1, get_agent/1, update_agent/2,
-	get_profile/1, new_profile/0, new_profile/1, update_profile/2,
-	new_queue/0, new_queue/1, get_queue/1, update_queue/2,
-	new_group/0, new_group/1, get_group/1, update_group/2,
-	new_line/0, new_line/1, new_line_in/0, new_line_in/1,
-	rpc_call/2, call/2, wait_ws/1,
+	create/1, create/2, get/1, get/2, update/1, update/2, delete/1, delete/2,
+	call/2, call/3, wait_ws/1,
 	stop/0, reset/0,
 	agents_queue/0
 ]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
--record(state, {user, agent=1, profile=1, queue=1, group=1, line=1, watch=#{}}).
+-record(state, {user, ids=#{}, watch=#{}}).
 
 start_link(Admin) ->
 	gen_server:start_link({local, ?MODULE}, ?MODULE, [Admin], []).
 
-new_agent() -> new_agent(#{}).
-new_agent(M) -> gen_server:call(?MODULE, {new_agent, M}).
-new_profile() -> new_profile(#{}).
-new_profile(M) -> gen_server:call(?MODULE, {new_profile, M}).
-new_queue() -> new_queue(#{}).
-new_queue(M) -> gen_server:call(?MODULE, {new_queue, M}).
-new_group() -> new_group(#{}).
-new_group(M) -> gen_server:call(?MODULE, {new_group, M}).
-new_line() -> new_line(#{}).
-new_line(M) -> gen_server:call(?MODULE, {new_line, M}).
-new_line_in() -> new_line_in(#{}).
-new_line_in(M) -> gen_server:call(?MODULE, {new_line_in, M}).
+create(Entity) -> create(Entity, #{}).
+create(Entity, M) -> gen_server:call(?MODULE, {create, Entity, M}).
 
-get_agent(Login) -> gen_server:call(?MODULE, {get_agent, Login}).
-get_profile(Name) -> gen_server:call(?MODULE, {get_profile, Name}).
-get_queue(Name) -> gen_server:call(?MODULE, {get_queue, Name}).
-get_group(Name) -> gen_server:call(?MODULE, {get_group, Name}).
-update_agent(Login, Props) -> gen_server:call(?MODULE, {update_agent, Login, Props}).
-update_profile(Name, Props) -> gen_server:call(?MODULE, {update_profile, Name, Props}).
-update_queue(Name, Props) -> gen_server:call(?MODULE, {update_queue, Name, Props}).
-update_group(Name, Props) -> gen_server:call(?MODULE, {update_group, Name, Props}).
+get(Entity) -> get(Entity, #{}).
+get(Entity, Id) -> gen_server:call(?MODULE, {get, Entity, Id}).
 
-rpc_call(Cmd, Args) -> gen_server:call(?MODULE, {rpc_call, Cmd, Args}).
-call(Cmd, Args) -> gen_server:call(?MODULE, {rpc_call, ws_admin, Cmd, Args}).
+update(Entity) -> update(Entity, #{}).
+update(Entity, Id) -> gen_server:call(?MODULE, {update, Entity, Id}).
+
+delete(Entity) -> delete(Entity, #{}).
+delete(Entity, Id) -> gen_server:call(?MODULE, {delete, Entity, Id}).
+
+call(F, A) -> gen_server:call(?MODULE, {call, ws_admin, F, A}).
+call(M, F, A) -> gen_server:call(?MODULE, {call, M, F, A}).
+
 wait_ws(Mask) -> gen_server:call(?MODULE, {wait_ws, Mask}).
 
 stop() -> gen_server:cast(?MODULE, {stop}).
@@ -53,7 +40,7 @@ agents_queue() -> call(agents, []).
 init([{Login, Pass}=_A]) ->
 	lager:info("start, admin:~p", [_A]),
 	Admin = agent_sup:agent(Login, Pass),
-	agent:rpc_call(Admin, ws_admin, reset, []),
+	agent:call(Admin, ws_admin, reset, []),
 	{ok, #state{user=Admin, watch=#{ erlang:monitor(process, agent:pid(Admin)) => {admin, Admin} }}}.
 
 handle_cast({stop}, S=#state{}) ->
@@ -64,82 +51,39 @@ handle_cast(_Msg, S=#state{}) ->
 	{noreply, S}.
 
 handle_info({'DOWN', Ref, process, _Pid, _Reason}, S=#state{user=Admin, watch=W}) ->
-	delete(Admin, maps:get(Ref, W, undefined)),
+	cleanup_waiter(Admin, maps:get(Ref, W, undefined)),
 	{noreply, S#state{watch=maps:remove(Ref, W)}};
 
 handle_info(_Info, S=#state{}) ->
 	lager:error("unhandled info:~p", [_Info]),
 	{noreply, S}.
 
-handle_call({new_agent, Map}, {Pid, _Ref}, S=#state{agent=Id, user=Admin, watch=W}) ->
-	AgentLogin = <<"test_agent_", (erlang:integer_to_binary(Id))/binary>>,
-	[Login, Password] = agent:rpc_call(Admin, ws_admin, create_agent, [Map#{ login => AgentLogin }]),
-	Agent = agent_sup:agent(Pid, Login, Password),
-	{reply, Agent, S#state{agent=Id+1, watch=W#{ erlang:monitor(process, Pid) => {agent, Agent} }}};
+fmt(Format, Args) -> lists:flatten(io_lib:format(Format, Args)).
 
-handle_call({new_line, Map}, {Pid, _Ref}, S=#state{line=Id, user=Admin, watch=W}) ->
-	Name = <<"test_line_", (erlang:integer_to_binary(Id))/binary>>,
-	Line = agent:rpc_call(Admin, ws_admin, create_line_out, [Map#{ name => Name }]),
-	{reply, Line, S#state{line=Id+1, watch=W#{ erlang:monitor(process, Pid) => {line, Line} }}};
+entity_name(Entity, Id) -> erlang:list_to_binary(fmt("test_~s_~p", [Entity, Id])).
+entity_module(Entity) -> erlang:list_to_binary(fmt("ws_db_~s", [Entity])).
 
-handle_call({new_line_in, Map}, {Pid, _Ref}, S=#state{line=Id, user=Admin, watch=W}) ->
-	Name = <<"test_line_in_", (erlang:integer_to_binary(Id))/binary>>,
-	Line = agent:rpc_call(Admin, ws_admin, create_line_in, [Map#{ name => Name }]),
-	{reply, Line, S#state{line=Id+1, watch=W#{ erlang:monitor(process, Pid) => {line_in, Line} }}};
+handle_call({create, Entity, Map}, {Pid, _Ref}, S=#state{user=Admin, ids=Ids, watch=W}) ->
+	EntityId = maps:get(Entity, Ids, 1),
+	Name = entity_name(Entity, EntityId),
+	Re = agent:call(Admin, entity_module(Entity), create, [Map#{ name => Name }]),
+	handle_created(Entity, Re, S),
+	{reply, Re, S#state{ids=Ids#{ Entity => EntityId + 1 }, watch=W#{ erlang:monitor(process, Pid) => {Entity, Re} }}};
 
-handle_call({new_profile, M}, {Pid, _Ref}, S=#state{profile=Id, user=Admin, watch=W}) ->
-	ProfileId = <<"test_profile_", (erlang:integer_to_binary(Id))/binary>>,
-	Name = agent:rpc_call(Admin, ws_admin, create_profile, [M#{ id => ProfileId }]),
-	{reply, Name, S#state{profile=Id+1, watch=W#{ erlang:monitor(process, Pid) => {profile, Name} }}};
-
-handle_call({new_queue, M}, {Pid, _Ref}, S=#state{queue=Id, user=Admin, watch=W}) ->
-	QueueId = <<"test_queue_", (erlang:integer_to_binary(Id))/binary>>,
-	Name = agent:rpc_call(Admin, ws_admin, create_queue, [M#{ name => QueueId }]),
-	{reply, Name, S#state{queue=Id+1, watch=W#{ erlang:monitor(process, Pid) => {queue, Name} }}};
-
-handle_call({new_group, M}, {Pid, _Ref}, S=#state{group=Id, user=Admin, watch=W}) ->
-	GroupId = <<"test_queue_group_", (erlang:integer_to_binary(Id))/binary>>,
-	Name = agent:rpc_call(Admin, ws_admmin, create_group, [M#{ name => GroupId }]),
-	{reply, Name, S#state{group=Id+1, watch=W#{ erlang:monitor(process, Pid) => {group, Name} }}};
-
-handle_call({get_agent, Login}, _, S=#state{user=Admin}) ->
-	Agent = agent:rpc_call(Admin, ws_admin, get_agent, [Login]),
-	{reply, Agent, S};
-
-handle_call({get_profile, Name}, _, S=#state{user=Admin}) ->
-	Re = agent:rpc_call(Admin, ws_admin, get_profile, [Name]),
+handle_call({get, Entity, Id}, _From, S=#state{user=Admin}) ->
+	Re = agent:call(Admin, entity_module(Entity), get, [Id]),
 	{reply, Re, S};
 
-handle_call({get_queue, Name}, _, S=#state{user=Admin}) ->
-	Re = agent:rpc_call(Admin, ws_admin, get_queue, [Name]),
+handle_call({get, Entity}, _From, S=#state{user=Admin}) ->
+	Re = agent:call(Admin, entity_module(Entity), get, []),
 	{reply, Re, S};
 
-handle_call({get_group, Name}, _, S=#state{user=Admin}) ->
-	Re = agent:rpc_call(Admin, ws_admin, get_group, [Name]),
+handle_call({update, Entity, M}, _From, S=#state{user=Admin}) ->
+	Re = agent:call(Admin, entity_module(Entity), update, [M]),
 	{reply, Re, S};
 
-handle_call({update_agent, Login, Diff}, _, S=#state{user=Admin}) ->
-	Re = agent:rpc_call(Admin, ws_admin, update_agent, [Login, Diff]),
-	{reply, Re, S};
-
-handle_call({update_profile, Name, Diff}, _, S=#state{user=Admin}) ->
-	Re = agent:rpc_call(Admin, ws_admin, update_profile, [Name, Diff]),
-	{reply, Re, S};
-
-handle_call({update_queue, Name, Diff}, _, S=#state{user=Admin}) ->
-	Re = agent:rpc_call(Admin, ws_admin, update_queue, [Name, Diff]),
-	{reply, Re, S};
-
-handle_call({update_group, Name, Diff}, _, S=#state{user=Admin}) ->
-	Re = agent:rpc_call(Admin, ws_admin, update_group, [Name, Diff]),
-	{reply, Re, S};
-
-handle_call({rpc_call, Module, Cmd, Args}, _, S=#state{user=Admin}) ->
-	Re = agent:rpc_call(Admin, Module, Cmd, Args),
-	{reply, Re, S};
-
-handle_call({rpc_call, Cmd, Args}, _, S=#state{user=Admin}) ->
-	Re = agent:rpc_call(Admin, Cmd, Args),
+handle_call({call, Module, Cmd, Args}, _, S=#state{user=Admin}) ->
+	Re = agent:call(Admin, Module, Cmd, Args),
 	{reply, Re, S};
 
 handle_call({wait_ws, Mask}, _, S=#state{user=Admin}) ->
@@ -147,7 +91,7 @@ handle_call({wait_ws, Mask}, _, S=#state{user=Admin}) ->
 	{reply, Re, S};
 
 handle_call({reset}, _, #state{user=Admin, watch=W}) ->
-	agent:rpc_call(Admin, ws_admin, reset, []),
+	agent:call(Admin, ws_admin, reset, []),
 	call:hupall(),
 	ts_core:wait(fun() -> [] = call:active() end),
 	{reply, ok, #state{user=Admin, watch=W}};
@@ -161,16 +105,21 @@ terminate(_Reason, _S=#state{user=Admin, watch=W}) ->
 	call:stop(),
 	cleanup_waiters(Admin, W),
 	ok.
+
 code_change(_OldVsn, S=#state{}, _Extra) -> {ok, S}.
 
 cleanup_waiters(Admin, W) ->
-	[ delete(Admin, Value) || Value = {Type, _} <- maps:values(W), Type =/= admin ].
+	[ cleanup_waiter(Admin, Value) || Value = {Type, _} <- maps:values(W), Type =/= admin ].
 
-delete(Admin, {group, Group}) -> <<"ok">> = agent:rpc_call(Admin, ws_admin, delete_group, [Group]);
-delete(Admin, {queue, [Id, _Queue]}) -> <<"ok">> = agent:rpc_call(Admin, ws_admin, delete_queue, [Id]);
-delete(Admin, {agent, Agent}) -> <<"ok">> = agent:rpc_call(Admin, ws_admin, delete_agent, [Agent]);
-delete(Admin, {profile, Profile}) -> <<"ok">> = agent:rpc_call(Admin, ws_admin, delete_profile, [Profile]);
-delete(Admin, {line, Line}) -> <<"ok">> = agent:rpc_call(Admin, ws_admin, delete_line_out, [Line]);
-delete(Admin, {line_in, Line}) -> <<"ok">> = agent:rpc_call(Admin, ws_admin, delete_line_in, [Line]);
-delete(_, {admin, _}) -> admin:stop();
-delete(_, undefined) -> skip.
+cleanup_waiter(Admin, {agent=Entity, Id}) ->
+	agent:call(Id, ws_agent, stop, []),
+	<<"ok">> = agent:call(Admin, entity_module(Entity), delete, [Id]);
+cleanup_waiter(Admin, {Entity, Id}) ->
+	<<"ok">> = agent:call(Admin, entity_module(Entity), delete, [Id]);
+cleanup_waiter(_, undefined) -> skip.
+
+handle_created(agent=Entity, Id, #state{user=Admin}) ->
+	#{ <<"login">> := Login, <<"password">> := Password } = agent:call(Admin, entity_module(Entity), get, [Id]),
+	agent_sup:agent(Login, Password);
+handle_created(_, _, _) ->
+	ok.
