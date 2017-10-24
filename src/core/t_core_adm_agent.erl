@@ -3,7 +3,7 @@
 -import(ts_core, [wait/1]).
 
 main() ->
-	lager:notice("admin rpc: create agent, make it release and available"),
+	lager:notice("admin api: create agent, make it release and available"),
 	AgentId = admin:create(agent),
 	[] = admin:call(agents, []),
 	test_lib:available(AgentId),

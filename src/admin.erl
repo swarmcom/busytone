@@ -67,8 +67,9 @@ handle_call({create, Entity, Map}, {Pid, _Ref}, S=#state{user=Admin, ids=Ids, wa
 	EntityId = maps:get(Entity, Ids, 1),
 	Name = entity_name(Entity, EntityId),
 	Re = agent:call(Admin, entity_module(Entity), create, [Map#{ name => Name }]),
-	handle_created(Entity, Re, S),
-	{reply, Re, S#state{ids=Ids#{ Entity => EntityId + 1 }, watch=W#{ erlang:monitor(process, Pid) => {Entity, Re} }}};
+	Id = make_id(Re),
+	handle_created(Entity, Id, S),
+	{reply, Id, S#state{ids=Ids#{ Entity => EntityId + 1 }, watch=W#{ erlang:monitor(process, Pid) => {Entity, Id} }}};
 
 handle_call({get, Entity, Id}, _From, S=#state{user=Admin}) ->
 	Re = agent:call(Admin, entity_module(Entity), get, [Id]),
@@ -123,3 +124,6 @@ handle_created(agent=Entity, Id, #state{user=Admin}) ->
 	agent_sup:agent(Login, Password);
 handle_created(_, _, _) ->
 	ok.
+
+make_id(#{ <<"id">> := Id }) -> Id;
+make_id(Id) -> Id.

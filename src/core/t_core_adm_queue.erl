@@ -3,13 +3,17 @@
 -import(ts_core, [wait/1]).
 
 main() ->
-	lager:notice("admin rpc: create agent, make it release and available"),
-	A = admin:new_agent(),
-	[] = admin:call(agents, []),
-	test_lib:available(A),
-	[#{ <<"id">> := A }] = admin:call(agents, []),
+	lager:notice("admin api: create queue and place a call"),
 
-	agent:release(A),
-	wait(fun() -> [] = admin:call(agents, []) end),
+	ClientId = admin:create(client),
+	QueueId = admin:create(queue),
+	LineInId = admin:create(line_in, #{ client_id => ClientId, queue_id => QueueId }),
+	admin:create(dial, #{ match => <<".*">>, line_in_id => LineInId, header => <<"Caller-Destination-Number">> }),
 
-	[_Agent1, #{ <<"agent_id">> := A }] = admin:call(agents, [release]).
+	UUID = test_lib:originate(<<"match">>),
+	wait(fun() -> [#{ <<"uuid">> := UUID }] = admin:call(inqueues, []) end),
+	call:hangup(UUID),
+	call:wait_hangup(UUID),
+	wait(fun() -> [] = admin:call(inqueues, []) end).
+
+
