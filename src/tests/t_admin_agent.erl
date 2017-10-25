@@ -6,7 +6,7 @@ main() ->
 	lager:notice("admin can create agent and make it release/available"),
 	AgentId = admin:create(agent),
 	[] = admin:call(agents, []),
-	test_lib:available(AgentId),
+	ts_make:available(AgentId),
 	[#{ <<"agent_id">> := AgentId }] = admin:call(agents, []),
 
 	agent:release(AgentId),

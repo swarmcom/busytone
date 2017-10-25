@@ -8,10 +8,10 @@ main() ->
 		hold_music => "tone_stream://%(500,0,1600);loops=-1"
 	}),
 	_LineIn = admin:new_line_in(#{ queue_id => Id, number => Queue }),
-	A = test_lib:available(),
+	A = ts_make:available(),
 	{LegIn, LegB} = ts_core:setup_talk(A, Queue),
 	agent:wait_ev(A, LegB, <<"CHANNEL_BRIDGE">>),
-	agent:rpc_call(A, hold, []),
+	agent:call(A, hold, []),
 
 	agent:wait_ev(A, LegB, <<"CHANNEL_UNBRIDGE">>),
 	agent:wait_ev(A, LegIn, <<"CHANNEL_PARK">>),
@@ -20,7 +20,7 @@ main() ->
 	ok = call:detect_tone(LegIn, "1600"),
 	call:wait_event(LegIn, <<"DETECTED_TONE">>),
 
-	agent:rpc_call(A, unhold, []),
+	agent:call(A, unhold, []),
 	agent:wait_ev(A, LegB, <<"CHANNEL_BRIDGE">>),
 
 	ts_core:ensure_talking(LegIn, LegB),

@@ -1,6 +1,7 @@
 -module(ts_core).
 -export([setup_talk/1, setup_talk/2, wait_agent_state/2, wait/1]).
 -export([ensure_talking/2, ensure_talking/3]).
+-export([path/2]).
 
 % umbrella module for core tests
 
@@ -34,3 +35,8 @@ ensure_talking(UUID1, UUID2, Timeout) ->
 	call:detect_tone(UUID2, "2600"),
 	call:wait_event(UUID2, #{ <<"Event-Name">> => <<"DETECTED_TONE">> }, Timeout),
 	call:stop_detect_tone(UUID2).
+
+path([], M) -> M;
+path([Key], M) when is_map(M) -> maps:get(Key, M, undefined);
+path([Key|Keys], M) when is_map(M) -> path(Keys, maps:get(Key, M, undefined));
+path(_A, _B) -> lager:error("~p ~p", [_A, _B]), undefined.

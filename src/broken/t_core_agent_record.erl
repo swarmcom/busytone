@@ -4,14 +4,14 @@
 
 main() ->
 	lager:notice("agent can start recording"),
-	Agent = test_lib:available(),
+	Agent = ts_make:available(),
 	{LegIn, LegAgent} = ts_core:setup_talk(Agent),
 	agent:wait_ev(Agent, LegAgent, <<"CHANNEL_BRIDGE">>),
-	agent:rpc_call(Agent, record, [start]),
+	agent:call(Agent, record, [start]),
 	timer:sleep(2000),
 	call:hangup(LegIn),
 	agent:wait_ws(Agent, #{ <<"event">> => <<"agent_state">>, <<"info">> => #{ <<"state">> => <<"available">> } }),
-	agent:rpc_call(Agent, record, [play, LegIn]),
+	agent:call(Agent, record, [play, LegIn]),
 	[Play] = agent:wait_for_call(Agent),
 	call:answer(Play),
 	call:wait_hangup(Play),

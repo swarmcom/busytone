@@ -8,10 +8,10 @@ main() ->
 		wrapup_enabled => false
 	}),
 	_LineIn = admin:new_line_in(#{ queue_id => Id, number => Queue }),
-	A = test_lib:available(),
+	A = ts_make:available(),
 	ts_core:setup_talk(A, Queue),
-	B = test_lib:available(),
-	agent:rpc_call(A, transfer_to_agent, [B]),
+	B = ts_make:available(),
+	agent:call(A, transfer_to_agent, [B]),
 	[UUID] = agent:wait_for_call(B),
 	call:answer(UUID),
 	agent:wait_ev(B, UUID, <<"CHANNEL_BRIDGE">>),

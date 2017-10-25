@@ -5,11 +5,11 @@
 main() ->
 	lager:notice("agent can transfer a call to external sip uri"),
 	LineId = admin:new_line(#{ number => <<"caller_number">> }),
-	Agent = test_lib:available(admin:new_agent(#{ line_id => LineId })),
+	Agent = ts_make:available(admin:new_agent(#{ line_id => LineId })),
 	{LegIn, LegAgent} = ts_core:setup_talk(Agent),
 	agent:wait_ev(Agent, LegAgent, <<"CHANNEL_BRIDGE">>),
 
-	agent:rpc_call(Agent, transfer_to_uri, [<<"external_number">>]),
+	agent:call(Agent, transfer_to_uri, [<<"external_number">>]),
 	#{ <<"Unique-ID">> := LegExt, <<"Caller-Destination-Number">> := <<"external_number">> } = call_sup:wait_call(),
 	ok = call:answer(LegExt),
 

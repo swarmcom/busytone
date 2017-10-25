@@ -5,16 +5,16 @@
 main() ->
 	lager:notice("agent can setup a conference call with a queue"),
 	LineId = admin:new_line(#{ number => <<"caller_number">> }),
-	A = test_lib:available(admin:new_agent(#{ line_id => LineId })),
+	A = ts_make:available(admin:new_agent(#{ line_id => LineId })),
 	{LegA, LegB} = ts_core:setup_talk(A),
 	agent:wait_ev(A, LegB, <<"CHANNEL_BRIDGE">>),
 
-	agent:rpc_call(A, conference_to_uri, [<<"external_number">>]),
+	agent:call(A, conference_to_uri, [<<"external_number">>]),
 	#{ <<"Unique-ID">> := LegC, <<"Caller-Destination-Number">> := <<"external_number">> } = call_sup:wait_call(),
 	ok = call:answer(LegC),
 
 	agent:wait_ws(A, #{ <<"event">> => <<"agent_state">> }),
-	agent:rpc_call(A, inqueue_to_conference, []),
+	agent:call(A, inqueue_to_conference, []),
 
 	ts_core:ensure_talking(LegA, LegB),
 	ts_core:ensure_talking(LegA, LegC),
