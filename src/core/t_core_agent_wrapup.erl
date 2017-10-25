@@ -4,14 +4,14 @@
 
 main() ->
 	lager:notice("agent goes to wrapup state if enabled by queue"),
-	[Id, Queue] = admin:new_queue(#{
-		wrapup_enabled => true
-	}),
-	_LineIn = admin:new_line_in(#{ queue_id => Id, number => Queue }),
-	Agent = test_lib:available(),
-	{LegIn, LegB} = ts_core:setup_talk(Agent, Queue),
+	ts_make:dial_in(#{ queue => #{ wrapup_enabled => true }}),
+
+	Agent = ts_make:available(),
+	{LegIn, LegAgent} = ts_make:call_bridged(Agent, whatever),
+	
 	call:hangup(LegIn),
-	call:wait_hangup(LegB),
-	agent:wait_ws(Agent, #{ <<"event">> => <<"agent_state">>, <<"info">> => #{ <<"state">> => <<"wrapup">> } }),
-	agent:rpc_call(Agent, end_wrapup, []),
-	agent:wait_ws(Agent, #{ <<"event">> => <<"agent_state">>, <<"info">> => #{ <<"state">> => <<"available">> } }).
+	call:wait_hangup(LegAgent),
+	
+	agent:wait_ws(Agent, #{ <<"event">> => <<"agent_state">>, <<"state">> => #{ <<"state">> => <<"wrapup">> } }),
+	agent:call(Agent, end_wrapup, []),
+	agent:wait_ws(Agent, #{ <<"event">> => <<"agent_state">>, <<"state">> => #{ <<"state">> => <<"available">> } }).

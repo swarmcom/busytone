@@ -6,7 +6,7 @@
 
 -export([
 	start_link/3, start/3, start/4, pid/1,
-	rpc/4, call/4, available/1, release/1, stop/1,
+	rpc/3, rpc/4, call/3, call/4, available/1, release/1, stop/1,
 	calls/1, wait_for_login/1, wait_for_call/1, on_incoming/2,
 	wait_ws/4, wait_ws/3, wait_ws/2, wait_ev/3,
 	online/0, by_number/1, ws_debug_filter/2
@@ -31,6 +31,8 @@
 -define(STEP, 1000).
 
 pid(Login) -> gproc:whereis_name({n, l, {?MODULE, Login}}).
+
+call(Agent, Cmd, Args) -> call(Agent, ws_agent, Cmd, Args).
 
 call(Agent, Module, Cmd, Args) ->
 	MsgId = rpc(Agent, Module, Cmd, Args),

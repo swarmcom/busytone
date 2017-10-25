@@ -7,12 +7,11 @@ main() ->
 
 	ts_make:dial_in(),
 
-	AgentAId = admin:create(agent, #{ ring_timeout => 1, max_ring_fails => 1 }),
-	ts_core:available(AgentAId),
-	AgentBId = admin:create(agent, #{ ring_timeout => 1, max_ring_fails => 1 }),
-	ts_core:available(AgentBId),
+	AgentAId = ts_make:available(#{ ring_timeout => 1, max_ring_fails => 1 }),
+	AgentBId = ts_make:available(#{ ring_timeout => 1, max_ring_fails => 1 }),
 
-	ts_core:wait_agent_state(AgentAId, <<"available">>), % sync
+	% sync
+	ts_core:wait_agent_state(AgentAId, <<"available">>),
 
 	InLeg = ts_make:call(whatever),
 	ts_core:wait_agent_state(AgentAId, <<"release">>),

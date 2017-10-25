@@ -4,16 +4,19 @@
 
 main() ->
 	lager:notice("check call is answered by agent, and hangup works for both legs"),
-	A = test_lib:available(),
-	test_hup_a(A),
-	test_lib:release(A),
 
-	B = test_lib:available(),
+	ts_make:dial_in(),
+
+	A = ts_make:available(),
+	test_hup_a(A),
+	ts_make:release(A),
+
+	B = ts_make:available(),
 	test_hup_b(B),
 	wait(fun() -> [#{ <<"state">> := <<"available">> }] = admin:agents_queue() end).
 
 setup_talk(A) ->
-	LegA = test_lib:originate(<<"default_queue">>),
+	LegA = ts_make:call(whatever),
 	[LegB] = agent:wait_for_call(A),
 	ok = call:answer(LegB),
 	agent:wait_ev(A, LegB, <<"CHANNEL_BRIDGE">>),

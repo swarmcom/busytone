@@ -3,9 +3,11 @@
 -import(ts_core, [wait/1]).
 
 main() ->
-	lager:notice("check inqueue call conversion to voicemail"),
-	A = admin:new_agent(),
-	In = test_lib:originate("default_queue"),
+	lager:notice("inqueue call goes to voicemail by dialing *, and agent can receive it"),
+
+	ts_make:dial_in(#{ line_in => #{ allow_voicemail => true }}),
+	In = ts_make:call(whatever),
+
 	admin:call(subscribe, [event, <<"CHANNEL_EXECUTE">>]),
 	wait(fun() -> [#{ <<"uuid">> := In, <<"state">> := <<"inqueue">>, <<"record">> := <<"inqueue_call">> }]  = admin:call(inqueues, []) end),
 	call:send_dtmf(In, "*"),
@@ -14,7 +16,9 @@ main() ->
 	call:hangup(In),
 	wait(fun() -> [#{ <<"uuid">> := In, <<"state">> := <<"inqueue">>, <<"record">> := <<"inqueue_vm">> }]  = admin:call(inqueues, []) end),
 
-	agent:available(A),
+	timer:sleep(1000), % need to wait vm to get stored
+
+	A = ts_make:available(),
 	[LegA] = agent:wait_for_call(A),
 	ok = call:answer(LegA),
 	call:wait_event(LegA, <<"CHANNEL_ANSWER">>),
