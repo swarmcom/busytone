@@ -3,19 +3,23 @@
 -import(ts_core, [wait/1]).
 
 main() ->
-	lager:notice("call is dispatched to another agent on call failure"),
-	AgentA = admin:new_agent(#{ ring_timeout => 1, max_ring_fails => 1 }),
-	test_lib:available(AgentA),
-	AgentB = admin:new_agent(#{ ring_timeout => 1, max_ring_fails => 1 }),
-	test_lib:available(AgentB),
+	lager:notice("call is dispatched to another agent on call timeout"),
 
-	ts_core:wait_agent_state(AgentA, <<"available">>),
+	ts_make:dial_in(),
 
-	InLeg = test_lib:originate(<<"default_queue">>),
-	ts_core:wait_agent_state(AgentA, <<"release">>),
+	AgentAId = admin:create(agent, #{ ring_timeout => 1, max_ring_fails => 1 }),
+	ts_core:available(AgentAId),
+	AgentBId = admin:create(agent, #{ ring_timeout => 1, max_ring_fails => 1 }),
+	ts_core:available(AgentBId),
 
-	[AgentBLeg] = agent:wait_for_call(AgentB),
+	ts_core:wait_agent_state(AgentAId, <<"available">>), % sync
+
+	InLeg = ts_make:call(whatever),
+	ts_core:wait_agent_state(AgentAId, <<"release">>),
+
+	[AgentBLeg] = agent:wait_for_call(AgentBId),
+
 	ok = call:answer(AgentBLeg),
-	agent:wait_ev(AgentB, AgentBLeg, <<"CHANNEL_BRIDGE">>),
+
 	call:hangup(AgentBLeg),
 	call:hangup(InLeg).
