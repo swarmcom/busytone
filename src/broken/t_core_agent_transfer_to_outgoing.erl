@@ -16,8 +16,8 @@ main() ->
 	% agent's leg is hungup, agent is back to available
 	wait(fun() -> [ #{ <<"agent_id">> := Agent } ] = admin:agents_queue() end),
 
-	test_lib:ensureTalking(LegIn, LegExt),
-	test_lib:ensureTalking(LegExt, LegIn),
+	ts_core:ensure_talking(LegIn, LegExt),
+	ts_core:ensure_talking(LegExt, LegIn),
 
 	call:hangup(LegIn),
 	call:wait_hangup(LegExt).

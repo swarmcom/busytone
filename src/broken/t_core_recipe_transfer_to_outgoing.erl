@@ -17,6 +17,6 @@ main() ->
 	#{ <<"Unique-ID">> := UUID, <<"Caller-Destination-Number">> := Queue } = call_sup:wait_call(),
 	#{ <<"Unique-ID">> := Out, <<"Caller-Destination-Number">> := <<"4000">> } = call_sup:wait_call(),
 	call:answer(Out),
-	test_lib:ensureTalking(UUID, Out),
+	ts_core:ensure_talking(UUID, Out),
 	call:hangup(Out),
 	call:hangup(UUID).

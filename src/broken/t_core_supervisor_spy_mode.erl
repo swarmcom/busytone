@@ -12,13 +12,13 @@ main() ->
 	call:answer(SupervisorLeg),
 	agent:wait_ws(Supervisor, #{ <<"event">> => <<"agent_state">>, <<"info">> => #{ <<"state">> => <<"barge">> } }),
 
-	{'EXIT',{timeout,_}} = (catch test_lib:ensureTalking(SupervisorLeg, AgentLeg, 1000)),
+	{'EXIT',{timeout,_}} = (catch ts_core:ensure_talking(SupervisorLeg, AgentLeg, 1000)),
 	agent:rpc_call(Supervisor, ws_supervisor, set_barge_mode, [agent]),
-	test_lib:ensureTalking(SupervisorLeg, AgentLeg),
+	ts_core:ensure_talking(SupervisorLeg, AgentLeg),
 
-	{'EXIT',{timeout,_}} = (catch test_lib:ensureTalking(SupervisorLeg, InqueueLeg, 1000)),
+	{'EXIT',{timeout,_}} = (catch ts_core:ensure_talking(SupervisorLeg, InqueueLeg, 1000)),
 	agent:rpc_call(Supervisor, ws_supervisor, set_barge_mode, [caller]),
-	test_lib:ensureTalking(SupervisorLeg, InqueueLeg),
+	ts_core:ensure_talking(SupervisorLeg, InqueueLeg),
 
 	call:hangup(InqueueLeg),
 	call:hangup(AgentLeg),

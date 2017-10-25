@@ -23,7 +23,7 @@ main() ->
 	agent:rpc_call(A, unhold, []),
 	agent:wait_ev(A, LegB, <<"CHANNEL_BRIDGE">>),
 
-	test_lib:ensureTalking(LegIn, LegB),
+	ts_core:ensure_talking(LegIn, LegB),
 	call:hangup(LegIn),
 	call:hangup(LegB),
 	wait(fun() -> [] = admin:call(inqueues, [all]) end).

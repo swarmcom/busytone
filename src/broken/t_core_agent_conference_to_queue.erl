@@ -18,9 +18,9 @@ main() ->
 	agent:wait_ws(A, #{ <<"event">> => <<"agent_state">> }),
 	agent:rpc_call(A, inqueue_to_conference, []),
 
-	test_lib:ensureTalking(LegA, LegB),
-	test_lib:ensureTalking(LegA, LegC),
-	test_lib:ensureTalking(LegB, LegC),
+	ts_core:ensure_talking(LegA, LegB),
+	ts_core:ensure_talking(LegA, LegC),
+	ts_core:ensure_talking(LegB, LegC),
 
 	call:hangup(LegB),
 	call:hangup(LegA),
