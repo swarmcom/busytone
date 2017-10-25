@@ -1,4 +1,4 @@
--module(t_core_voicemail).
+-module(t_core_inqueue_voicemail).
 -export([main/0]).
 -import(ts_core, [wait/1]).
 

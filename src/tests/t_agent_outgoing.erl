@@ -1,9 +1,9 @@
--module(t_core_agent_out).
+-module(t_agent_outgoing).
 -export([main/0]).
 -import(ts_core, [wait/1]).
 
 main() ->
-	lager:notice("check outgoing call works for an agent"),
+	lager:notice("agent can place outgoing call"),
 
 	LineOutId = admin:create(line_out, #{
 		caller_id_name => <<"caller_name">>,

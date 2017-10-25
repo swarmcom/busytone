@@ -3,7 +3,8 @@ BusyTone TODO
 
 ## On
 
-1. Automate channel counter on agent answer?
+1. When test fails it doesn't cleanup for itself
+2. id_seq table has binary keys on restore op
 
 ## Other
 

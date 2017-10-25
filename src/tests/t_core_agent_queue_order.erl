@@ -1,9 +1,9 @@
--module(t_core_agent_seq).
+-module(t_core_agent_queue_order).
 -export([main/0]).
 -import(ts_core, [wait/1]).
 
 main() ->
-	lager:notice("check agents are sorted by longest time in available state"),
+	lager:notice("agents are ordered by time they became available"),
 	A = ts_make:available(),
 	B = ts_make:available(),
 	C = ts_make:available(),

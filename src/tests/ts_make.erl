@@ -2,8 +2,8 @@
 -export([
 	dial_in/0, dial_in/1,
 	agent/0, agent/1, available/0, available/1, release/1,
-	call/1,
-	call_bridged/2
+	call/1, call_bridged/2,
+	recipe_with_entry/1
 ]).
 
 % create things we're going to test, maybe in different states
@@ -19,6 +19,11 @@ dial_in(M) ->
 	QueueId = admin:create(queue, maps:get(queue, M, #{})),
 	LineInId = admin:create(line_in, (maps:get(line_in, M, #{}))#{ client_id => ClientId, queue_id => QueueId }),
 	admin:create(dial, #{ match => <<".*">>, line_in_id => LineInId, header => <<"Caller-Destination-Number">> }).
+
+recipe_with_entry(M) ->
+	Recipe = admin:create(recipe),
+	admin:create(recipe_entry, M#{ recipe_id => Recipe }),
+	Recipe.
 
 agent() -> admin:create(agent).
 agent(M) -> admin:create(agent, M).

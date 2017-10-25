@@ -1,18 +1,19 @@
--module(t_core_recipe_voicemail).
+-module(t_recipe_voicemail).
 -export([main/0]).
 -import(ts_core, [wait/1]).
 
 main() ->
 	lager:notice("check voicemail recipe works after one second"),
-	[Id, Queue] = admin:new_queue(#{
-		recipe => [ #{
-			conditions => [ [ticks, '=', 1] ],
-			operations => [ [voicemail ] ]
-		}]
+
+	Recipe = ts_make:recipe_with_entry(#{
+		conditions => [ #{ name => ticks, args => ['=', 1] }],
+		actions => [ #{ name => voicemail, args => [] }]
 	}),
-	_LineIn = admin:new_line_in(#{ queue_id => Id, number => Queue }),
-	UUID = test_lib:originate(Queue),
+	ts_make:dial_in(#{ queue => #{ recipe_id => Recipe } }),
+
+	UUID = ts_make:call(whatever),
 	admin:call(subscribe, [uuid, UUID]),
+
 	wait(fun() -> [#{ <<"uuid">> := UUID, <<"state">> := <<"inqueue">>, <<"record">> := <<"inqueue_call">> }]  = admin:call(inqueues, []) end),
 
 	ok = call:detect_tone(UUID, "500"),
@@ -21,8 +22,10 @@ main() ->
 	ok = call:hangup(UUID),
 	wait(fun() -> [#{ <<"uuid">> := UUID, <<"state">> := <<"inqueue">>, <<"record">> := <<"inqueue_vm">> }]  = admin:call(inqueues, []) end),
 
+	timer:sleep(1000), % wait vm to become availablel
+
 	% receive it
-	Agent = test_lib:available(),
+	Agent = ts_make:available(),
 	[LegA] = agent:wait_for_call(Agent),
 	ok = call:answer(LegA),
 	call:wait_event(LegA, <<"CHANNEL_ANSWER">>),

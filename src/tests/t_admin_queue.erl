@@ -1,9 +1,9 @@
--module(t_core_adm_queue).
+-module(t_admin_queue).
 -export([main/0]).
 -import(ts_core, [wait/1]).
 
 main() ->
-	lager:notice("admin api: create queue and place a call"),
+	lager:notice("admin can create a queue and place a call"),
 
 	ts_core:dial_in(),
 

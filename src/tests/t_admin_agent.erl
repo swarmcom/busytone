@@ -1,9 +1,9 @@
--module(t_core_adm_agent).
+-module(t_admin_agent).
 -export([main/0]).
 -import(ts_core, [wait/1]).
 
 main() ->
-	lager:notice("admin api: create agent, make it release and available"),
+	lager:notice("admin can create agent and make it release/available"),
 	AgentId = admin:create(agent),
 	[] = admin:call(agents, []),
 	test_lib:available(AgentId),

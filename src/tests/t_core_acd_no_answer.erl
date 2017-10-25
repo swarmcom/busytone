@@ -1,4 +1,4 @@
--module(t_core_agent_no_answer_seq).
+-module(t_core_acd_no_answer).
 -export([main/0]).
 -import(ts_core, [wait/1]).
 

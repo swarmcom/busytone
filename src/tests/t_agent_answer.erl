@@ -1,4 +1,4 @@
--module(t_core_answer).
+-module(t_agent_answer).
 -export([main/0]).
 -import(ts_core, [wait/1]).
 

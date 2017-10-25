@@ -3,7 +3,7 @@
 -import(ts_core, [wait/1]).
 
 main() ->
-	lager:notice("inqueue process dies with call"),
+	lager:notice("inqueue process is bound to call"),
 	ts_make:dial_in(),
 	UUID = ts_make:call(whatever),
 	wait(fun() -> [#{ <<"uuid">> := UUID, <<"state">> := <<"inqueue">> }] = admin:call(inqueues, []) end),

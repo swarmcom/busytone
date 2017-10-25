@@ -1,9 +1,9 @@
--module(t_core_agent_hold).
+-module(t_agent_hold).
 -export([main/0]).
 -import(ts_core, [wait/1]).
 
 main() ->
-	lager:notice("agent can hold a call and then bridge back"),
+	lager:notice("agent can hold a call, and then can talk again"),
 	ts_make:dial_in(),
 	AgentId = ts_make:agent(),
 	{LegIn, LegAgent} = ts_core:setup_talk(AgentId),
