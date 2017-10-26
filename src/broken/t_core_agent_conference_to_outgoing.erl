@@ -4,23 +4,30 @@
 
 main() ->
 	lager:notice("agent can setup a conference call with a queue"),
-	LineId = admin:new_line(#{ number => <<"caller_number">> }),
-	A = ts_make:available(admin:new_agent(#{ line_id => LineId })),
-	{LegA, LegB} = ts_core:setup_talk(A),
-	agent:wait_ev(A, LegB, <<"CHANNEL_BRIDGE">>),
 
-	agent:call(A, conference_to_uri, [<<"external_number">>]),
+	ts_make:dial_in(),
+
+	LineOutId = admin:create(line_out, #{
+		caller_id_name => <<"caller_name">>,
+		caller_id_number => <<"caller_number">>,
+		override_clid => true
+	}),
+	Agent = ts_make:available(#{ line_id => LineOutId }),
+
+	{LegIn, LegAgent} = ts_make:call_bridged(Agent, whatever),
+	agent:wait_ev(Agent, LegAgent, <<"CHANNEL_BRIDGE">>),
+
+	agent:call(Agent, conference_to_uri, [<<"external_number">>]),
 	#{ <<"Unique-ID">> := LegC, <<"Caller-Destination-Number">> := <<"external_number">> } = call_sup:wait_call(),
 	ok = call:answer(LegC),
 
-	agent:wait_ws(A, #{ <<"event">> => <<"agent_state">> }),
-	agent:call(A, inqueue_to_conference, []),
+	agent:call(Agent, conference, [inqueue]),
 
-	ts_core:ensure_talking(LegA, LegB),
-	ts_core:ensure_talking(LegA, LegC),
-	ts_core:ensure_talking(LegB, LegC),
+	ts_core:ensure_talking(LegIn, LegAgent),
+	ts_core:ensure_talking(LegIn, LegC),
+	ts_core:ensure_talking(LegAgent, LegC),
 
-	call:hangup(LegB),
-	call:hangup(LegA),
+	call:hangup(LegAgent),
+	call:hangup(LegIn),
 	call:hangup(LegC),
 	wait(fun() -> [] = admin:call(inqueues, [all]) end).
