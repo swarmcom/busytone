@@ -1,4 +1,4 @@
--module(t_core_agent_transfer_to_agent).
+-module(t_agent_transfer_to_agent).
 -export([main/0]).
 -import(ts_core, [wait/1]).
 
