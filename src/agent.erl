@@ -41,7 +41,7 @@ call(Agent, Module, Cmd, Args) ->
 
 login(Login, Password) ->
 	try
-		M = #{ <<"id">> := _AgentId } = call(Login, ws_agent, auth, [Login, Password, false]),
+		M = #{ <<"id">> := _AgentId } = call(Login, ws_auth, auth, [Login, Password, false]),
 		update(Login, M)
 	catch _:Err ->
 		lager:error("authenticate:~p", [Err]),

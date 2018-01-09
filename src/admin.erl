@@ -40,7 +40,6 @@ agents_queue() -> call(agents, []).
 init([{Login, Pass}=_A]) ->
 	lager:info("start, admin:~p", [_A]),
 	Admin = agent_sup:agent(Login, Pass),
-	agent:call(Admin, ws_admin, reset, []),
 	{ok, #state{user=Admin, watch=#{ erlang:monitor(process, agent:pid(Admin)) => {admin, Admin} }}}.
 
 handle_cast({stop}, S=#state{}) ->
