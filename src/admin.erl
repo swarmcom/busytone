@@ -91,7 +91,6 @@ handle_call({wait_ws, Mask}, _, S=#state{user=Admin}) ->
 	{reply, Re, S};
 
 handle_call({reset}, _, #state{user=Admin, watch=W}) ->
-	agent:call(Admin, ws_admin, reset, []),
 	call:hupall(),
 	ts_core:wait(fun() -> [] = call:active() end),
 	{reply, ok, #state{user=Admin, watch=W}};
@@ -113,6 +112,7 @@ cleanup_waiters(Admin, W) ->
 
 cleanup_waiter(Admin, {agent=Entity, Id}) ->
 	agent:call(Id, ws_agent, stop, []),
+	timer:sleep(1000), % give some time for backend to end everything
 	<<"ok">> = agent:call(Admin, entity_module(Entity), delete, [Id]);
 cleanup_waiter(Admin, {Entity, Id}) ->
 	<<"ok">> = agent:call(Admin, entity_module(Entity), delete, [Id]);

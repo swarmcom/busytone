@@ -181,7 +181,7 @@ handle_call(_Msg, _From, S=#state{}) ->
 
 handle_cast(_Msg, S=#state{}) -> {noreply, S}.
 
-terminate(_Reason, _S=#state{reach=Pid, agent=#agent{login=Login}}) ->
+terminate(_Reason, #state{reach=Pid, agent=#agent{login=Login}}=S) ->
 	lager:info("~s terminate, reason:~p", [Login, _Reason]),
 	gun:close(Pid),
 	ok.
