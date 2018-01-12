@@ -5,12 +5,10 @@
 main() ->
 	lager:notice("admin can create a queue and place a call"),
 
-	ts_core:dial_in(),
+	ts_make:dial_in(),
 
 	UUID = test_lib:originate(<<"match">>),
-	wait(fun() -> [#{ <<"uuid">> := UUID }] = admin:call(inqueues, []) end),
+	[#{ <<"uuid">> := _ReachUUID }] = wait(fun() -> [#{}] =admin:call(inqueues, []) end),
 	call:hangup(UUID),
 	call:wait_hangup(UUID),
 	wait(fun() -> [] = admin:call(inqueues, []) end).
-
-
