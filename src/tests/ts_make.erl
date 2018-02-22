@@ -44,8 +44,7 @@ release(AgentId) ->
 	AgentId.
 
 call(Target) ->
-	UUID = call_sup:originate(Target),
-	call:wait(UUID).
+	call_sup:originate(Target).
 
 call_bridged(AgentId, Target) ->
 	LegIn = call(Target),

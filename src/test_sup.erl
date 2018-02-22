@@ -1,7 +1,7 @@
 -module(test_sup).
 -behaviour(gen_server).
 
--export([start_link/0, run/0, run/1, run/2, runs/1, info/0, debug/0, notice/0, set_loglevel/1]).
+-export([start_link/0, run/0, run/1, run/2, runs/1, info/0, debug/0, notice/0, set_loglevel/1, eval/1, file/1]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
@@ -81,6 +81,18 @@ run_test(Test) ->
 	test_run:stop(Pid),
 	{Test, Re}.
 
+eval(Test) ->
+	{ok, Pid} = test_run:start_link(),
+	Re = handle_re(test_run:eval(Pid, Test)),
+	test_run:stop(Pid),
+	Re.
+
+file(Name) ->
+	case file:read_file(Name) of
+		{ok, Binary} -> eval(b2l(Binary));
+		Err -> lager:error("can't open file:~p, error:~p cwd:~p", [Name, Err, file:get_cwd()])
+	end.
+
 shuffle(L) ->
 	[ X || {_, X} <- lists:sort([ {rand:uniform(), N} || N <- L]) ].
 
@@ -95,3 +107,4 @@ is_test(Name, Prefix) -> lists:prefix(Prefix, Name).
 handle_re(not_ok=Re) -> timer:sleep(1000), Re;
 handle_re(Re) -> Re.
 
+b2l(B) when is_binary(B) -> erlang:binary_to_list(B).
