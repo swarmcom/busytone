@@ -2,7 +2,7 @@
 -export([
 	dial_in/0, dial_in/1,
 	agent/0, agent/1, available/0, available/1, release/1,
-	call/1, call_bridged/2,
+	call/1, call/2, call_bridged/2,
 	recipe_with_entry/1
 ]).
 
@@ -45,6 +45,9 @@ release(AgentId) ->
 
 call(Target) ->
 	call_sup:originate(Target).
+
+call(Target, CallerId) ->
+	call_sup:originate(Target, [{origination_caller_id_number, CallerId}]).
 
 call_bridged(AgentId, Target) ->
 	LegIn = call(Target),

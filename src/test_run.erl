@@ -36,22 +36,18 @@ handle_call({eval, Test}, _From, S=#state{}) ->
 handle_call({run, Test}, _From, S=#state{}) ->
 	try
 		Test:main(),
-		admin:reset(),
 		{reply, ok, S}
 	catch C:E ->
 		lager:error("~s error:~s", [Test, lager:pr_stacktrace(erlang:get_stacktrace(), {C,E})]),
-		admin:reset(),
 		{reply, not_ok, S}
 	end;
 
 handle_call({run, Test, Repeat}, _From, S=#state{}) ->
 	try
 		[ Test:main() || _I <- lists:seq(1, Repeat) ],
-		admin:reset(),
 		{reply, ok, S}
 	catch C:E ->
 		lager:error("~s error:~s", [Test, lager:pr_stacktrace(erlang:get_stacktrace(), {C,E})]),
-		admin:reset(),
 		{reply, not_ok, S}
 	end;
 
