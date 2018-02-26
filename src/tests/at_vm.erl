@@ -2,6 +2,8 @@
 -export([main/0]).
 -import(ts_core, [wait/1]).
 
+-define(Number, <<"1234">>).
+
 main() ->
 	setup(),
 	leave_voicemail(),
@@ -11,8 +13,8 @@ setup() ->
 	ts_make:dial_in( #{ line_in => #{ allow_voicemail => true } }).
 
 leave_voicemail() ->
-	UUID = ts_make:call("1234"),
-	[#{ <<"uuid">> := InQ }] = wait(fun() -> [#{ <<"state">> := <<"inqueue">> }]  = admin:call(inqueues, []) end),
+	UUID = ts_make:call(?Number),
+	{1, _} = at_lib:wait_for_inqueue(?Number),
 	call:send_dtmf(UUID, "*"),
 	timer:sleep(2000),
 	call:hangup(UUID),

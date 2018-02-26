@@ -2,15 +2,18 @@
 -export([main/0]).
 -import(ts_core, [wait/1]).
 
+-define(Number1, <<"1001">>).
+-define(Number2, <<"1002">>).
+
 main() ->
 	setup(),
 
 	% lodge a call
-	ts_make:call(<<"1234">>, <<"1">>),
-	timer:sleep(1000),
+	ts_make:call(?Number1, <<"1">>),
+	{1, _} = at_lib:wait_for_inqueue(?Number1),
 
-	leave_voicemail(<<"2">>),
-	timer:sleep(3000), % let recipe to kick in
+	leave_voicemail(?Number2, <<"2">>),
+	timer:sleep(2000), % let recipe to kick in
 
 	Agent = ts_make:available(),
 
@@ -24,18 +27,20 @@ setup() ->
 	}),
 	ts_make:dial_in(#{ queue => #{ recipe_id => Recipe }, line_in => #{ allow_voicemail => true } }).
 
-leave_voicemail(N) ->
-	UUID = ts_make:call(<<"1234">>, N),
-	timer:sleep(1000),
+leave_voicemail(Number, N) ->
+	UUID = ts_make:call(Number, N),
+	{2, _} = at_lib:wait_for_inqueue(Number),
+	timer:sleep(1000), % call setup
 	call:send_dtmf(UUID, "*"),
-	timer:sleep(2000),
+	timer:sleep(2000), % vm body
 	call:hangup(UUID),
 	timer:sleep(1000). % digest vm
 
-receive_voicemail(Agent, _N) ->
+receive_voicemail(Agent, N) ->
 	[UUID] = agent:wait_for_call(Agent),
 	ok = call:answer(UUID),
 	call:wait_event(UUID, <<"CHANNEL_ANSWER">>),
+	check_number(UUID, N),
 	call:wait_hangup(UUID).
 
 receive_call(Agent, N) ->
