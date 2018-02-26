@@ -3,7 +3,6 @@
 
 -export([
 	check_inqueue_is_empty/0,
-	wait_for_single_inqueue/1,
 	wait_for_inqueue/1,
 	wait_for_agent/1,
 	wait_for_agent/2
@@ -12,16 +11,10 @@
 check_inqueue_is_empty() ->
 	wait(fun() -> [] = admin:call(inqueues, []) end).
 
-wait_for_single_inqueue(Number) ->
-	wait(fun() -> [#{ <<"call_vars">> := #{ <<"Caller-Destination-Number">> := Number }}] = admin:call(inqueues, []) end).
-
 wait_for_inqueue(Number) ->
-	wait(
-		fun() ->
-			[Re] = [ X || #{ <<"call_vars">> := #{ <<"Caller-Destination-Number">> := N }}=X <- admin:call(inqueues, []), N =:= Number ],
-			Re
-		end
-	).
+	wait_for(fun(Inqueue) -> match_caller_dest(Inqueue, Number) end, fun() -> admin:call(inqueues, []) end).
+
+match_caller_dest(#{ <<"call_vars">> := #{ <<"Caller-Destination-Number">> := N }}, Number) -> N =:= Number.
 
 match_agent_id(#{ <<"agent_id">> := Id }, AgentId) -> AgentId =:= Id;
 match_agent_id(_, _) -> false.

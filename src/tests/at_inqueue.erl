@@ -8,8 +8,7 @@ main() ->
 	setup(),
 	at_lib:check_inqueue_is_empty(),
 	ExtCall = ts_make:call(?Number),
-	X = at_lib:wait_for_inqueue(?Number),
-	lager:error("~p", [X]),
+	{1, _X} = at_lib:wait_for_inqueue(?Number),
 	call:hangup(ExtCall),
 	at_lib:check_inqueue_is_empty().
 
