@@ -112,7 +112,6 @@ cleanup_waiters(Admin, W) ->
 
 cleanup_waiter(Admin, {agent=Entity, Id}) ->
 	agent:call(Id, ws_agent, stop, []),
-	timer:sleep(1000), % give some time for backend to end everything
 	<<"ok">> = agent:call(Admin, entity_module(Entity), delete, [Id]);
 cleanup_waiter(Admin, {Entity, Id}) ->
 	<<"ok">> = agent:call(Admin, entity_module(Entity), delete, [Id]);

@@ -7,6 +7,7 @@ main() ->
 
 	% lodge a call
 	ts_make:call(<<"1234">>, <<"1">>),
+	timer:sleep(1000),
 
 	leave_voicemail(<<"2">>),
 	timer:sleep(3000), % let recipe to kick in
@@ -19,7 +20,7 @@ main() ->
 setup() ->
 	Recipe = ts_make:recipe_with_entry(#{
 		conditions => [ #{ name => type, args => ['=', <<"Voicemail">>] }],
-		actions => [ #{ name => priority, args => [1] }]
+		actions => [ #{ name => priority, args => [2] }]
 	}),
 	ts_make:dial_in(#{ queue => #{ recipe_id => Recipe }, line_in => #{ allow_voicemail => true } }).
 

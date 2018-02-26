@@ -79,6 +79,7 @@ run_test(Test) ->
 	Re = handle_re(test_run:run(Pid, Test)),
 	log_result(Test, Re),
 	test_run:stop(Pid),
+	admin:stop(), % clean-up
 	{Test, Re}.
 
 eval(Test) ->
