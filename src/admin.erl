@@ -37,9 +37,9 @@ reset() -> gen_server:call(?MODULE, {reset}).
 
 agents_queue() -> call(agents, []).
 
-init([{Login, Pass}=_A]) ->
+init([{Domain, Login, Pass}=_A]) ->
 	lager:info("start, admin:~p", [_A]),
-	Admin = agent_sup:agent(Login, Pass),
+	Admin = agent_sup:agent(Domain, Login, Pass),
 	{ok, #state{user=Admin, watch=#{ erlang:monitor(process, agent:pid(Admin)) => {admin, Admin} }}}.
 
 handle_cast({stop}, S=#state{}) ->

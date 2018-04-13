@@ -39,9 +39,9 @@ call(Agent, Module, Cmd, Args) ->
 	{match, _, #{ <<"reply">> := Re } } = wait_ws(Agent, #{ <<"id">> => MsgId }),
 	Re.
 
-login(Login, Password) ->
+login(Domain, Login, Password) ->
 	try
-		M = #{ <<"id">> := _AgentId } = call(Login, ws_auth, auth, [Login, Password, false]),
+		M = #{ <<"id">> := _AgentId } = call(Login, ws_auth, login, [Domain, Login, Password, false]),
 		update(Login, M)
 	catch _:Err ->
 		lager:error("authenticate:~p", [Err]),
@@ -102,9 +102,9 @@ handle_info({gun_up, Pid, http}, S) ->
 handle_info({gun_down, _Pid, http, closed, _, _}, S) -> {noreply, S};
 handle_info({gun_down, _Pid, ws, closed, _, _}, S) -> {stop, normal, S};
 
-handle_info({gun_ws_upgrade, _Pid, ok, _Headers}, S=#state{agent=#agent{login=Login, password=Password}}) ->
+handle_info({gun_ws_upgrade, _Pid, ok, _Headers}, S=#state{agent=#agent{domain=Domain, login=Login, password=Password}}) ->
 	erlang:send_after(30000, self(), ping),
-	spawn(fun() -> login(Login, Password) end),
+	spawn(fun() -> login(Domain, Login, Password) end),
 	{noreply, S#state{}};
 handle_info({gun_ws, _Pid, {text, Text}}, S) ->
 	lager:debug("ws in:~s", [Text]),

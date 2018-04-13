@@ -2,7 +2,7 @@
 -behaviour(gen_server).
 -include_lib("busytone/include/busytone.hrl").
 
--export([start_link/2, agent/2, agent/3]).
+-export([start_link/2, agent/3, agent/4]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
@@ -12,9 +12,9 @@
 }).
 
 start_link(Host, Port) -> gen_server:start_link({local, ?MODULE}, ?MODULE, [Host, Port], []).
-agent(Login, Password) -> gen_server:call(?MODULE, #agent{login=Login, password=Password}).
-agent(Owner, Login, Password) ->
-	gen_server:call(?MODULE, {agent, Owner, #agent{login=Login, password=Password}}).
+agent(Domain, Login, Password) -> gen_server:call(?MODULE, #agent{domain=Domain, login=Login, password=Password}).
+agent(Domain, Owner, Login, Password) ->
+	gen_server:call(?MODULE, {agent, Owner, #agent{domain=Domain, login=Login, password=Password}}).
 
 init([Host, Port]) ->
 	lager:notice("start, host:~p port:~p", [Host, Port]),
