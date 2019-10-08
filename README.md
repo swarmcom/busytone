@@ -8,7 +8,7 @@ Notes
 =====
 
 Relies heavily on [mod_erlang_event](https://freeswitch.org/confluence/display/FREESWITCH/mod_erlang_event),
-also requires FreeSWITCH [drone](https://github.com/swarmcom/docker/tree/master/agents) to operate.
+also requires FreeSWITCH [drone](https://github.com/swarmcom/docker/tree/master/freeswitch-agents) to operate.
 
 `call_sup:originate/1` and `call_sup:originate/2` anchor calls back to BusyTone to manage, the same way
 as incoming calls gets in, therefore no additional tricks required to get channel events/updates.
